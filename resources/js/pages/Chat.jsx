@@ -14,6 +14,7 @@ export default function Chat() {
     const [newRoomName, setNewRoomName] = useState('');
     const [newRoomDesc, setNewRoomDesc] = useState('');
     const messagesEndRef = useRef(null);
+    const echoRef = useRef(null);
 
     useEffect(() => {
         loadRooms();
@@ -22,14 +23,35 @@ export default function Chat() {
     useEffect(() => {
         if (selectedRoom) {
             loadMessages(selectedRoom.id);
-            const interval = setInterval(() => loadMessages(selectedRoom.id), 3000);
-            return () => clearInterval(interval);
+            listenForMessages(selectedRoom.id);
+            return () => {
+                if (echoRef.current) {
+                    echoRef.current.stopListening(`chat.room.${selectedRoom.id}`);
+                    echoRef.current.leave(`chat.room.${selectedRoom.id}`);
+                    echoRef.current = null;
+                }
+            };
         }
     }, [selectedRoom]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
+
+    const listenForMessages = (roomId) => {
+        if (!window.Echo) return;
+        if (echoRef.current) {
+            echoRef.current.stopListening(`chat.room.${roomId}`);
+            echoRef.current.leave(`chat.room.${roomId}`);
+        }
+        echoRef.current = window.Echo.private(`chat.room.${roomId}`);
+        echoRef.current.listen('.MessageSent', (e) => {
+            setMessages((prev) => {
+                if (prev.some((m) => m.id === e.id)) return prev;
+                return [...prev, e];
+            });
+        });
+    };
 
     const loadRooms = async () => {
         try {
@@ -51,8 +73,8 @@ export default function Chat() {
         }
     };
 
-    const selectRoom = async (roomId) => {
-        setSelectedRoom(rooms.find(r => r.id === roomId));
+    const selectRoom = (roomId) => {
+        setSelectedRoom(rooms.find((r) => r.id === roomId));
     };
 
     const handleSend = async (e) => {
@@ -61,7 +83,7 @@ export default function Chat() {
         setSending(true);
         try {
             const res = await chatService.sendMessage(selectedRoom.id, newMessage);
-            setMessages([...messages, res.data]);
+            setMessages((prev) => [...prev, res.data]);
             setNewMessage('');
         } catch (err) {
             console.error(err);
@@ -98,8 +120,8 @@ export default function Chat() {
             <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-bold text-gray-800">Chat Rooms</h1>
                 <div className="flex items-center gap-2">
-                    {selectedRoom && <span className="text-sm text-green-600 flex items-center gap-1">● Live</span>}
-                    <button onClick={() => setShowCreate(!showCreate)} className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700">
+                    {selectedRoom && <span className="text-sm text-green-600 items-center gap-1 hidden sm:flex">● Live</span>}
+                    <button onClick={() => setShowCreate(!showCreate)} className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 text-sm">
                         + New Room
                     </button>
                 </div>
@@ -114,15 +136,21 @@ export default function Chat() {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white rounded-xl p-4 shadow-sm">
-                    <h2 className="font-semibold text-gray-800 mb-3">Rooms</h2>
+                {/* Mobile: show room list OR chat */}
+                <div className={`${selectedRoom ? 'hidden md:block' : 'block'} bg-white rounded-xl p-4 shadow-sm`}>
+                    <div className="flex items-center justify-between mb-3">
+                        <h2 className="font-semibold text-gray-800">Rooms</h2>
+                        {selectedRoom && (
+                            <button onClick={() => setSelectedRoom(null)} className="text-sm text-purple-600 md:hidden">✕</button>
+                        )}
+                    </div>
                     {loading ? (
                         <p className="text-gray-500">Loading...</p>
                     ) : rooms.length === 0 ? (
                         <p className="text-gray-500">No rooms yet</p>
                     ) : (
                         <div className="space-y-2">
-                            {rooms.map(room => (
+                            {rooms.map((room) => (
                                 <div key={room.id} onClick={() => selectRoom(room.id)}
                                     className={`p-3 rounded-lg cursor-pointer ${selectedRoom?.id === room.id ? 'bg-purple-100' : 'hover:bg-gray-50'}`}>
                                     <p className="font-medium text-gray-800">{room.name}</p>
@@ -133,16 +161,20 @@ export default function Chat() {
                     )}
                 </div>
 
-                <div className="md:col-span-2 bg-white rounded-xl p-4 shadow-sm">
+                <div className={`${!selectedRoom ? 'hidden md:block' : 'block'} md:col-span-2 bg-white rounded-xl p-4 shadow-sm`}>
                     {selectedRoom ? (
                         <>
-                            <h2 className="font-semibold text-gray-800 mb-3">{selectedRoom.name}</h2>
+                            <div className="flex items-center gap-2 mb-3">
+                                <button onClick={() => setSelectedRoom(null)} className="p-1 text-gray-500 hover:text-gray-700 md:hidden">←</button>
+                                <h2 className="font-semibold text-gray-800">{selectedRoom.name}</h2>
+                                <span className="text-sm text-green-600 hidden md:inline">● Live</span>
+                            </div>
                             <div className="h-80 overflow-y-auto space-y-3 mb-4 p-2 border rounded-lg">
-                                {messages.map(msg => (
+                                {messages.map((msg) => (
                                     <div key={msg.id} className={`flex ${msg.user_id === user.id ? 'justify-end' : 'justify-start'}`}>
-                                        <div className={`max-w-xs p-3 rounded-lg ${msg.user_id === user.id ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-800'}`}>
+                                        <div className={`max-w-[75%] md:max-w-xs p-3 rounded-lg ${msg.user_id === user.id ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-800'}`}>
                                             <p className="text-xs font-medium mb-1 opacity-75">{msg.user?.name}</p>
-                                            <p>{msg.message}</p>
+                                            <p className="break-words">{msg.message}</p>
                                         </div>
                                     </div>
                                 ))}

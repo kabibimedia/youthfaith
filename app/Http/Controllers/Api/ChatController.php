@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\MessageSent;
 use App\Http\Controllers\Controller;
 use App\Models\ChatRoom;
 use Illuminate\Http\JsonResponse;
@@ -61,6 +62,8 @@ class ChatController extends Controller
         ]);
 
         $message->load('user');
+
+        broadcast(new MessageSent($message))->toOthers();
 
         return response()->json($message, 201);
     }

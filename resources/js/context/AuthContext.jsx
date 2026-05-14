@@ -6,6 +6,7 @@ const AuthContext = createContext();
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [justLoggedIn, setJustLoggedIn] = useState(false);
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -23,12 +24,20 @@ export function AuthProvider({ children }) {
         const res = await authService.login({ login, password });
         localStorage.setItem('token', res.data.token);
         setUser(res.data.user);
+        setJustLoggedIn(true);
     };
 
-    const register = async (name, username, email, password, passwordConfirmation, dateOfBirth = null, location = null) => {
-        const res = await authService.register({ name, username, email, password, password_confirmation: passwordConfirmation, date_of_birth: dateOfBirth, location });
+    const adminLogin = async (login, password) => {
+        const res = await authService.adminLogin({ login, password });
         localStorage.setItem('token', res.data.token);
         setUser(res.data.user);
+    };
+
+    const register = async (data) => {
+        const res = await authService.register(data);
+        localStorage.setItem('token', res.data.token);
+        setUser(res.data.user);
+        setJustLoggedIn(true);
     };
 
     const logout = async () => {
@@ -37,11 +46,12 @@ export function AuthProvider({ children }) {
         } finally {
             localStorage.removeItem('token');
             setUser(null);
+            setJustLoggedIn(false);
         }
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+        <AuthContext.Provider value={{ user, setUser, login, adminLogin, register, logout, loading, justLoggedIn, setJustLoggedIn }}>
             {children}
         </AuthContext.Provider>
     );

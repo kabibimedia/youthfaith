@@ -14,6 +14,7 @@ import PrayerWall from './pages/PrayerWall';
 import Music from './pages/Music';
 import Leaderboard from './pages/Leaderboard';
 import Challenges from './pages/Challenges';
+import Blogs from './pages/Blogs';
 import Admin from './pages/Admin';
 
 export default function App() {
@@ -33,6 +34,7 @@ export default function App() {
                     <Route path="chat" element={<Chat />} />
                     <Route path="prayers" element={<PrayerWall />} />
                     <Route path="challenges" element={<Challenges />} />
+                    <Route path="blogs" element={<Blogs />} />
                     <Route path="leaderboard" element={<Leaderboard />} />
                     <Route path="profile/:id?" element={<Profile />} />
                 </Route>

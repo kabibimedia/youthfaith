@@ -65,27 +65,27 @@ export default function Events() {
             ) : (
                 <div className="grid gap-6">
                     {events.map(event => (
-                        <div key={event.id} className="bg-gradient-to-br from-white to-purple-50 rounded-2xl p-6 shadow-lg shadow-purple-100 border border-purple-50 hover:shadow-xl transition-all">
-                            <div className="flex flex-col md:flex-row gap-4">
-                                <div className="flex-1">
+                        <div key={event.id} className="bg-gradient-to-br from-white to-purple-50 rounded-2xl p-4 sm:p-6 shadow-lg shadow-purple-100 border border-purple-50 hover:shadow-xl transition-all">
+                                <div className="flex flex-col md:flex-row gap-4">
+                                <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-2">
-                                        <span className="px-3 py-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full text-sm font-medium">
+                                        <span className="px-3 py-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full text-xs sm:text-sm font-medium">
                                             Upcoming
                                         </span>
                                     </div>
-                                    <h3 className="text-xl font-bold text-gray-800 mb-2">{event.title}</h3>
-                                    <p className="text-gray-600 mt-2 leading-relaxed">{event.description}</p>
-                                    <div className="flex flex-wrap gap-4 mt-4 text-gray-500">
-                                        <span className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl shadow-sm">
+                                    <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2">{event.title}</h3>
+                                    <p className="text-gray-600 mt-2 leading-relaxed text-sm sm:text-base">{event.description}</p>
+                                    <div className="flex flex-wrap gap-2 sm:gap-4 mt-4 text-gray-500">
+                                        <span className="flex items-center gap-1.5 bg-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl shadow-sm text-xs sm:text-sm">
                                             📅 {new Date(event.event_date).toLocaleDateString()}
                                         </span>
-                                        <span className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl shadow-sm">
+                                        <span className="flex items-center gap-1.5 bg-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl shadow-sm text-xs sm:text-sm">
                                             📍 {event.location || 'TBD'}
                                         </span>
                                     </div>
                                     {event.max_attendees && (
                                         <div className="mt-4">
-                                            <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+                                            <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 mb-1">
                                                 <span>👥 {event.attendees?.length || 0}/{event.max_attendees} spots filled</span>
                                             </div>
                                             <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -98,7 +98,7 @@ export default function Events() {
                                 {user && (
                                     <div className="flex-shrink-0 flex items-center">
                                         <button onClick={() => isJoined(event) ? handleLeave(event.id) : handleJoin(event.id)}
-                                            className={`px-8 py-3 rounded-xl font-bold transition-all ${
+                                            className={`w-full md:w-auto px-6 sm:px-8 py-2.5 sm:py-3 rounded-xl font-bold transition-all text-sm sm:text-base ${
                                                 isJoined(event) 
                                                     ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' 
                                                     : 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:shadow-lg hover:shadow-purple-500/30'

@@ -23,6 +23,9 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'surname',
+        'firstname',
+        'othername',
         'username',
         'email',
         'password',
@@ -33,7 +36,15 @@ class User extends Authenticatable
         'streak',
         'last_active_at',
         'is_admin',
+        'role',
         'status',
+        'date_of_birth',
+        'location',
+        'is_member',
+        'has_dues_card',
+        'dues_card_code',
+        'dues_card_issued_at',
+        'registration_photo',
     ];
 
     /**
@@ -57,7 +68,35 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'last_active_at' => 'datetime',
+            'date_of_birth' => 'date',
         ];
+    }
+
+    protected function getAvatarAttribute($value): ?string
+    {
+        if (! $value) {
+            return null;
+        }
+
+        return str_starts_with($value, 'http') ? $value : url('storage/'.$value);
+    }
+
+    protected function getRegistrationPhotoAttribute($value): ?string
+    {
+        if (! $value) {
+            return null;
+        }
+
+        return str_starts_with($value, 'http') ? $value : url('storage/'.$value);
+    }
+
+    protected function getNameAttribute($value): string
+    {
+        if ($this->surname || $this->firstname) {
+            return trim(implode(' ', array_filter([$this->surname, $this->firstname, $this->othername])));
+        }
+
+        return $value;
     }
 
     public function posts(): HasMany
@@ -83,5 +122,15 @@ class User extends Authenticatable
     public function quizAttempts(): HasMany
     {
         return $this->hasMany(QuizAttempt::class);
+    }
+
+    public function duesPayments(): HasMany
+    {
+        return $this->hasMany(DuesPayment::class);
+    }
+
+    public function pledges(): HasMany
+    {
+        return $this->hasMany(Pledge::class);
     }
 }

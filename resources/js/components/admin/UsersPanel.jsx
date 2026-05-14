@@ -1,6 +1,22 @@
 import { useState, useEffect } from 'react';
 import { adminService } from '../../services/api';
 
+function PhotoPreview({ src, onClose }) {
+    if (!src) return null;
+    return (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4" onClick={onClose}>
+            <div className="max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+                <img src={src} alt="Registration photo" className="w-full rounded-xl" />
+                <button onClick={onClose} className="mt-3 w-full py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors text-sm">
+                    Close
+                </button>
+            </div>
+        </div>
+    );
+}
+
+const ROLES = ['President', 'Vice President', 'Secretary', 'Treasurer', 'Organiser', 'Prayer Coordinator', 'Media Lead', 'Worship Lead', 'Outreach Lead', 'Discipleship Lead', 'Admin'];
+
 export default function UsersPanel() {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -8,6 +24,7 @@ export default function UsersPanel() {
     const [page, setPage] = useState(1);
     const [pagination, setPagination] = useState(null);
     const [editingUser, setEditingUser] = useState(null);
+    const [previewPhoto, setPreviewPhoto] = useState(null);
 
     useEffect(() => {
         loadUsers();
@@ -69,6 +86,7 @@ export default function UsersPanel() {
                         <tr className="border-b">
                             <th className="text-left py-3 px-4 font-medium text-gray-600">User</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-600">Email</th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-600">Role</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-600">Points</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-600">Admin</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-600">Joined</th>
@@ -87,6 +105,9 @@ export default function UsersPanel() {
                                     </div>
                                 </td>
                                 <td className="py-3 px-4 text-gray-600">{user.email}</td>
+                                <td className="py-3 px-4">
+                                    {user.role ? <span className="text-sm font-medium text-purple-700">{user.role}</span> : <span className="text-sm text-gray-400">—</span>}
+                                </td>
                                 <td className="py-3 px-4">
                                     <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm">
                                         {user.points || 0} pts
@@ -142,6 +163,8 @@ export default function UsersPanel() {
                 </div>
             )}
 
+            {previewPhoto && <PhotoPreview src={previewPhoto} onClose={() => setPreviewPhoto(null)} />}
+
             {editingUser && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-xl p-6 w-full max-w-md">
@@ -174,6 +197,25 @@ export default function UsersPanel() {
                                         onChange={(e) => setEditingUser({ ...editingUser, points: parseInt(e.target.value) })}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                                     />
+                                </div>
+                                {editingUser.registration_photo && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Registration Photo</label>
+                                        <button onClick={() => setPreviewPhoto(editingUser.registration_photo)} className="group relative">
+                                            <img src={editingUser.registration_photo} alt="Registration" className="w-20 h-20 rounded-lg object-cover border-2 border-gray-200" />
+                                            <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <span className="text-white text-xs font-medium">View</span>
+                                            </div>
+                                        </button>
+                                    </div>
+                                )}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Role / Position</label>
+                                    <select value={editingUser.role || ''} onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                        <option value="">No Role</option>
+                                        {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                                    </select>
                                 </div>
                                 <div>
                                     <label className="flex items-center gap-2">

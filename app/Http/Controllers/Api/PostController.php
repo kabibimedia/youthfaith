@@ -16,6 +16,7 @@ class PostController extends Controller
             'user:id,name,avatar',
             'comments.user:id,name,avatar',
             'comments.replies.user:id,name,avatar',
+            'sharedFrom.user:id,name,avatar',
         ])
             ->orderByDesc('created_at')
             ->get();
@@ -186,5 +187,25 @@ class PostController extends Controller
             ->get();
 
         return response()->json($comments);
+    }
+
+    public function share(int $id, Request $request): JsonResponse
+    {
+        $originalPost = Post::findOrFail($id);
+        $user = $request->user();
+
+        $sharedPost = $user->posts()->create([
+            'content' => $originalPost->content,
+            'media_url' => $originalPost->media_url,
+            'media_type' => $originalPost->media_type,
+            'post_type' => $originalPost->post_type,
+            'shared_from_post_id' => $originalPost->id,
+        ]);
+
+        $originalPost->increment('shares_count');
+
+        $sharedPost->load(['user:id,name,avatar', 'sharedFrom.user:id,name,avatar']);
+
+        return response()->json($sharedPost, 201);
     }
 }

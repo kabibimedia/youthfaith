@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Post;
 use App\Models\Status;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -80,5 +81,27 @@ class StatusController extends Controller
         $expired = Status::expired()->delete();
 
         return response()->json(['deleted' => $expired]);
+    }
+
+    public function sharePost(int $postId, Request $request): JsonResponse
+    {
+        $originalPost = Post::findOrFail($postId);
+        $user = $request->user();
+
+        $status = Status::create([
+            'user_id' => $user->id,
+            'type' => 'text',
+            'content' => $originalPost->content,
+            'shared_from_post_id' => $originalPost->id,
+            'expires_at' => now()->addHours(24),
+        ]);
+
+        $originalPost->increment('shares_count');
+
+        $status->load(['user' => function ($query) {
+            $query->select('id', 'name', 'avatar');
+        }, 'sharedFrom.user:id,name,avatar']);
+
+        return response()->json($status, 201);
     }
 }

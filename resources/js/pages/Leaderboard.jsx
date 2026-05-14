@@ -57,37 +57,37 @@ export default function Leaderboard() {
                                 } rounded-2xl p-6 shadow-lg transition-all hover:scale-[1.01] ${
                                     rankStyle ? rankStyle.shadow : 'shadow-purple-100'
                                 }`}>
-                                <div className="flex items-center gap-4">
-                                    <div className={`text-4xl font-bold w-16 text-center ${
+                                <div className="flex items-center gap-3 sm:gap-4">
+                                    <div className={`text-2xl sm:text-4xl font-bold w-10 sm:w-16 text-center shrink-0 ${
                                         rankStyle ? 'text-white' : 'text-gray-400'
                                     }`}>
                                         {rankStyle ? rankStyle.icon : `#${index + 1}`}
                                     </div>
-                                    <div className="w-16 h-16 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white text-2xl font-bold">
+                                    <div className="w-10 h-10 sm:w-16 sm:h-16 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white text-base sm:text-2xl font-bold shrink-0">
                                         {user.name?.charAt(0).toUpperCase()}
                                     </div>
-                                    <div className="flex-1">
-                                        <h3 className={`text-xl font-bold ${rankStyle ? 'text-white' : 'text-gray-800'}`}>
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className={`text-base sm:text-xl font-bold truncate ${rankStyle ? 'text-white' : 'text-gray-800'}`}>
                                             {user.name}
                                         </h3>
                                         {user.username && (
-                                            <p className={`text-sm ${rankStyle ? 'text-white/80' : 'text-gray-500'}`}>
+                                            <p className={`text-xs sm:text-sm truncate ${rankStyle ? 'text-white/80' : 'text-gray-500'}`}>
                                                 @{user.username}
                                             </p>
                                         )}
                                     </div>
-                                    <div className="flex gap-6">
+                                    <div className="flex gap-3 sm:gap-6 shrink-0">
                                         <div className="text-center">
-                                            <div className={`text-2xl font-bold ${rankStyle ? 'text-white' : 'text-purple-600'}`}>
+                                            <div className={`text-lg sm:text-2xl font-bold ${rankStyle ? 'text-white' : 'text-purple-600'}`}>
                                                 ⭐ {user.points || 0}
                                             </div>
-                                            <div className={`text-sm ${rankStyle ? 'text-white/70' : 'text-gray-500'}`}>Points</div>
+                                            <div className={`text-[10px] sm:text-sm ${rankStyle ? 'text-white/70' : 'text-gray-500'}`}>Pts</div>
                                         </div>
                                         <div className="text-center">
-                                            <div className={`text-2xl font-bold ${rankStyle ? 'text-white' : 'text-orange-500'}`}>
+                                            <div className={`text-lg sm:text-2xl font-bold ${rankStyle ? 'text-white' : 'text-orange-500'}`}>
                                                 🔥 {user.streak || 0}
                                             </div>
-                                            <div className={`text-sm ${rankStyle ? 'text-white/70' : 'text-gray-500'}`}>Streak</div>
+                                            <div className={`text-[10px] sm:text-sm ${rankStyle ? 'text-white/70' : 'text-gray-500'}`}>Str</div>
                                         </div>
                                     </div>
                                 </div>

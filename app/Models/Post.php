@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Post extends Model
 {
-    protected $fillable = ['user_id', 'content', 'media_url', 'media_type', 'post_type', 'shares_count'];
+    protected $fillable = ['user_id', 'content', 'media_url', 'media_type', 'post_type', 'shares_count', 'shared_from_post_id'];
 
     protected $casts = [
         'shares_count' => 'integer',
@@ -17,6 +17,11 @@ class Post extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function sharedFrom(): BelongsTo
+    {
+        return $this->belongsTo(Post::class, 'shared_from_post_id');
     }
 
     public function comments(): HasMany

@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Status extends Model
 {
-    protected $fillable = ['user_id', 'type', 'content', 'media_url', 'expires_at', 'is_active'];
+    protected $fillable = ['user_id', 'type', 'content', 'media_url', 'expires_at', 'is_active', 'shared_from_post_id'];
 
     protected function casts(): array
     {
@@ -21,6 +21,11 @@ class Status extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function sharedFrom(): BelongsTo
+    {
+        return $this->belongsTo(Post::class, 'shared_from_post_id');
     }
 
     public function scopeActive(Builder $query): Builder
