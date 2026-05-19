@@ -1,19 +1,6 @@
 import { useState, useEffect } from 'react';
 import { adminService } from '../../services/api';
-
-function PhotoPreview({ src, onClose }) {
-    if (!src) return null;
-    return (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4" onClick={onClose}>
-            <div className="max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
-                <img src={src} alt="Registration photo" className="w-full rounded-xl" />
-                <button onClick={onClose} className="mt-3 w-full py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors text-sm">
-                    Close
-                </button>
-            </div>
-        </div>
-    );
-}
+import AdminPanel from './AdminPanel';
 
 const ROLES = ['President', 'Vice President', 'Secretary', 'Treasurer', 'Organiser', 'Prayer Coordinator', 'Media Lead', 'Worship Lead', 'Outreach Lead', 'Discipleship Lead', 'Admin'];
 
@@ -24,11 +11,8 @@ export default function UsersPanel() {
     const [page, setPage] = useState(1);
     const [pagination, setPagination] = useState(null);
     const [editingUser, setEditingUser] = useState(null);
-    const [previewPhoto, setPreviewPhoto] = useState(null);
 
-    useEffect(() => {
-        loadUsers();
-    }, [page, search]);
+    useEffect(() => { loadUsers(); }, [page, search]);
 
     const loadUsers = async () => {
         try {
@@ -47,7 +31,7 @@ export default function UsersPanel() {
         try {
             await adminService.deleteUser(id);
             loadUsers();
-        } catch (err) {
+        } catch {
             alert('Failed to delete user');
         }
     };
@@ -58,85 +42,85 @@ export default function UsersPanel() {
             await adminService.updateUser(editingUser.id, editingUser);
             setEditingUser(null);
             loadUsers();
-        } catch (err) {
+        } catch {
             alert('Failed to update user');
         }
     };
 
     if (loading) {
-        return <div className="text-center py-8 text-gray-500">Loading...</div>;
+        return (
+            <AdminPanel title="Users Management">
+                <div className="space-y-3">
+                    {[1, 2, 3, 4].map(i => (
+                        <div key={i} className="h-14 bg-gray-50 rounded-xl animate-pulse" />
+                    ))}
+                </div>
+            </AdminPanel>
+        );
     }
 
     return (
-        <div className="bg-white rounded-xl p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-800">Users Management</h2>
-                <input
-                    type="text"
-                    placeholder="Search users..."
-                    value={search}
-                    onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-            </div>
-
-            <div className="overflow-x-auto">
+        <AdminPanel
+            title={`Users (${pagination?.total || users.length})`}
+            search={search}
+            onSearch={(e) => { setSearch(e.target.value); setPage(1); }}
+            searchPlaceholder="Search users..."
+        >
+            <div className="overflow-x-auto -mx-5">
                 <table className="w-full">
                     <thead>
-                        <tr className="border-b">
-                            <th className="text-left py-3 px-4 font-medium text-gray-600">User</th>
-                            <th className="text-left py-3 px-4 font-medium text-gray-600">Email</th>
-                            <th className="text-left py-3 px-4 font-medium text-gray-600">Role</th>
-                            <th className="text-left py-3 px-4 font-medium text-gray-600">Points</th>
-                            <th className="text-left py-3 px-4 font-medium text-gray-600">Admin</th>
-                            <th className="text-left py-3 px-4 font-medium text-gray-600">Joined</th>
-                            <th className="text-left py-3 px-4 font-medium text-gray-600">Actions</th>
+                        <tr className="border-b border-gray-100">
+                            <th className="text-left py-3 px-5 font-semibold text-gray-500 text-xs uppercase tracking-wider">User</th>
+                            <th className="text-left py-3 px-5 font-semibold text-gray-500 text-xs uppercase tracking-wider">Email</th>
+                            <th className="text-left py-3 px-5 font-semibold text-gray-500 text-xs uppercase tracking-wider">Position</th>
+                            <th className="text-left py-3 px-5 font-semibold text-gray-500 text-xs uppercase tracking-wider">Points</th>
+                            <th className="text-left py-3 px-5 font-semibold text-gray-500 text-xs uppercase tracking-wider">Access</th>
+                            <th className="text-left py-3 px-5 font-semibold text-gray-500 text-xs uppercase tracking-wider">Joined</th>
+                            <th className="text-left py-3 px-5 font-semibold text-gray-500 text-xs uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {users.map(user => (
-                            <tr key={user.id} className="border-b hover:bg-gray-50">
-                                <td className="py-3 px-4">
+                        {users.map((user, i) => (
+                            <tr key={user.id} className={`border-b border-gray-50 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} hover:bg-purple-50/50 transition-colors`}>
+                                <td className="py-3.5 px-5">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 font-medium">
+                                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-sm font-bold shadow-sm">
                                             {user.name?.charAt(0).toUpperCase()}
                                         </div>
-                                        <span className="font-medium text-gray-800">{user.name}</span>
+                                        <div>
+                                            <p className="font-medium text-gray-800 text-sm">{user.name}</p>
+                                        </div>
                                     </div>
                                 </td>
-                                <td className="py-3 px-4 text-gray-600">{user.email}</td>
-                                <td className="py-3 px-4">
-                                    {user.role ? <span className="text-sm font-medium text-purple-700">{user.role}</span> : <span className="text-sm text-gray-400">—</span>}
+                                <td className="py-3.5 px-5">
+                                    <span className="text-sm text-gray-500">{user.email}</span>
                                 </td>
-                                <td className="py-3 px-4">
-                                    <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm">
-                                        {user.points || 0} pts
-                                    </span>
-                                </td>
-                                <td className="py-3 px-4">
-                                    {user.is_admin ? (
-                                        <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-sm">Admin</span>
+                                <td className="py-3.5 px-5">
+                                    {user.position ? (
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium">{user.position}</span>
                                     ) : (
-                                        <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-sm">User</span>
+                                        <span className="text-sm text-gray-300">—</span>
                                     )}
                                 </td>
-                                <td className="py-3 px-4 text-gray-500 text-sm">
-                                    {new Date(user.created_at).toLocaleDateString()}
+                                <td className="py-3.5 px-5">
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 rounded-lg text-xs font-medium">
+                                        ⭐ {user.points || 0}
+                                    </span>
                                 </td>
-                                <td className="py-3 px-4">
+                                <td className="py-3.5 px-5">
+                                    {user.role === 'super_admin' ? (
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-100 text-purple-700 rounded-lg text-xs font-medium">👑 Super Admin</span>
+                                    ) : user.role === 'admin' ? (
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-50 text-red-600 rounded-lg text-xs font-medium">🔑 Admin</span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-500 rounded-lg text-xs font-medium">User</span>
+                                    )}
+                                </td>
+                                <td className="py-3.5 px-5 text-sm text-gray-400">{new Date(user.created_at).toLocaleDateString()}</td>
+                                <td className="py-3.5 px-5">
                                     <div className="flex gap-2">
-                                        <button
-                                            onClick={() => setEditingUser(user)}
-                                            className="px-3 py-1 text-sm bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200"
-                                        >
-                                            Edit
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(user.id)}
-                                            className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200"
-                                        >
-                                            Delete
-                                        </button>
+                                        <button onClick={() => setEditingUser(user)} className="px-3 py-1.5 text-xs font-medium bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors">Edit</button>
+                                        <button onClick={() => handleDelete(user.id)} className="px-3 py-1.5 text-xs font-medium bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors">Delete</button>
                                     </div>
                                 </td>
                             </tr>
@@ -146,15 +130,15 @@ export default function UsersPanel() {
             </div>
 
             {pagination?.last_page > 1 && (
-                <div className="flex justify-center gap-2 mt-6">
+                <div className="flex justify-center gap-2 mt-5">
                     {Array.from({ length: pagination.last_page }, (_, i) => (
                         <button
                             key={i}
                             onClick={() => setPage(i + 1)}
-                            className={`px-3 py-1 rounded-lg ${
+                            className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${
                                 page === i + 1
-                                    ? 'bg-purple-600 text-white'
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-sm'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}
                         >
                             {i + 1}
@@ -163,91 +147,51 @@ export default function UsersPanel() {
                 </div>
             )}
 
-            {previewPhoto && <PhotoPreview src={previewPhoto} onClose={() => setPreviewPhoto(null)} />}
-
             {editingUser && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl p-6 w-full max-w-md">
-                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Edit User</h3>
-                        <form onSubmit={handleUpdate}>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                                    <input
-                                        type="text"
-                                        value={editingUser.name}
-                                        onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                                    <input
-                                        type="email"
-                                        value={editingUser.email}
-                                        onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Points</label>
-                                    <input
-                                        type="number"
-                                        value={editingUser.points}
-                                        onChange={(e) => setEditingUser({ ...editingUser, points: parseInt(e.target.value) })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                                    />
-                                </div>
-                                {editingUser.registration_photo && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Registration Photo</label>
-                                        <button onClick={() => setPreviewPhoto(editingUser.registration_photo)} className="group relative">
-                                            <img src={editingUser.registration_photo} alt="Registration" className="w-20 h-20 rounded-lg object-cover border-2 border-gray-200" />
-                                            <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <span className="text-white text-xs font-medium">View</span>
-                                            </div>
-                                        </button>
-                                    </div>
-                                )}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Role / Position</label>
-                                    <select value={editingUser.role || ''} onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                                        <option value="">No Role</option>
-                                        {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="flex items-center gap-2">
-                                        <input
-                                            type="checkbox"
-                                            checked={editingUser.is_admin}
-                                            onChange={(e) => setEditingUser({ ...editingUser, is_admin: e.target.checked })}
-                                            className="rounded"
-                                        />
-                                        <span className="text-sm font-medium text-gray-700">Is Admin</span>
-                                    </label>
-                                </div>
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setEditingUser(null)}>
+                    <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-lg font-bold text-gray-900 mb-1">Edit User</h3>
+                        <p className="text-xs text-gray-400 mb-5">Update user details and permissions</p>
+                        <form onSubmit={handleUpdate} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Name</label>
+                                <input type="text" value={editingUser.name} onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })} className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none" />
                             </div>
-                            <div className="flex justify-end gap-3 mt-6">
-                                <button
-                                    type="button"
-                                    onClick={() => setEditingUser(null)}
-                                    className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-                                >
-                                    Save
-                                </button>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Email</label>
+                                <input type="email" value={editingUser.email} onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })} className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Points</label>
+                                <input type="number" value={editingUser.points} onChange={(e) => setEditingUser({ ...editingUser, points: parseInt(e.target.value) })} className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none" />
+                            </div>
+                            {editingUser.registration_photo && (
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Registration Photo</label>
+                                    <img src={editingUser.registration_photo} alt="Registration" className="w-20 h-20 rounded-xl object-cover border-2 border-gray-200" />
+                                </div>
+                            )}
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Position</label>
+                                <select value={editingUser.position || ''} onChange={(e) => setEditingUser({ ...editingUser, position: e.target.value })} className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none">
+                                    <option value="">No Role</option>
+                                    {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                                </select>
+                            </div>
+                            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                                <span className="text-sm font-medium text-gray-700">Access:</span>
+                                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium ${editingUser.role === 'super_admin' ? 'bg-purple-100 text-purple-700' : editingUser.role === 'admin' ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500'}`}>
+                                    {editingUser.role === 'super_admin' ? '👑 Super Admin' : editingUser.role === 'admin' ? '🔑 Admin' : 'User'}
+                                </span>
+                            </div>
+                            <div className="flex justify-end gap-3 pt-2">
+                                <button type="button" onClick={() => setEditingUser(null)} className="px-5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">Cancel</button>
+                                <button type="submit" className="px-5 py-2.5 text-sm font-medium bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:shadow-lg transition-all">Save Changes</button>
                             </div>
                         </form>
                     </div>
                 </div>
             )}
-        </div>
+        </AdminPanel>
     );
 }

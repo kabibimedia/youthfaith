@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { adminSliderService } from '../../services/api';
+import AdminPanel from './AdminPanel';
 
 function SlideEditor({ slider, onSave, onCancel }) {
     const [title, setTitle] = useState(slider?.title || '');
@@ -165,80 +166,84 @@ export default function SlidersPanel() {
     };
 
     if (loading) {
-        return <div className="text-center py-8 text-gray-500">Loading...</div>;
+        return (
+            <AdminPanel title="Hero Slider">
+                <div className="space-y-3">
+                    {[1, 2, 3, 4].map(i => <div key={i} className="h-14 bg-gray-50 rounded-xl animate-pulse" />)}
+                </div>
+            </AdminPanel>
+        );
     }
 
     return (
-        <div className="space-y-6">
-            <h2 className="text-lg font-semibold text-gray-800">Hero Slider Images</h2>
+        <AdminPanel title={`Hero Slider (${sliders.length})`}>
+            <div className="space-y-6">
+                {/* Bulk Upload */}
+                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+                    <label className="block text-sm font-medium text-gray-700 mb-3">Upload Images</label>
+                    <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFiles} className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 mb-4" />
 
-            {/* Bulk Upload */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border">
-                <label className="block text-sm font-medium text-gray-700 mb-3">Upload Images</label>
-                <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFiles} className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 mb-4" />
-
-                {bulkPreviews.length > 0 && (
-                    <div className="mb-4">
-                        <div className="flex flex-wrap gap-3 mb-3">
-                            {bulkPreviews.map((src, i) => (
-                                <div key={i} className="w-20 h-16 rounded-lg overflow-hidden bg-gray-100">
-                                    <img src={src} alt="" className="w-full h-full object-cover" />
-                                </div>
-                            ))}
+                    {bulkPreviews.length > 0 && (
+                        <div className="mb-4">
+                            <div className="flex flex-wrap gap-3 mb-3">
+                                {bulkPreviews.map((src, i) => (
+                                    <div key={i} className="w-20 h-16 rounded-lg overflow-hidden bg-gray-100">
+                                        <img src={src} alt="" className="w-full h-full object-cover" />
+                                    </div>
+                                ))}
+                            </div>
+                            <p className="text-sm text-gray-500">{bulkFiles.length} image(s) selected</p>
+                            <button onClick={handleBulkUpload} disabled={uploading} className="mt-3 px-5 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl text-sm font-medium hover:shadow-lg transition-all disabled:opacity-50">
+                                {uploading ? 'Uploading...' : `Upload ${bulkFiles.length > 0 ? `(${bulkFiles.length})` : ''}`}
+                            </button>
                         </div>
-                        <p className="text-sm text-gray-500">{bulkFiles.length} image(s) selected</p>
-                        <button onClick={handleBulkUpload} disabled={uploading} className="mt-3 px-5 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50">
-                            {uploading ? 'Uploading...' : `Upload ${bulkFiles.length > 0 ? `(${bulkFiles.length})` : ''}`}
-                        </button>
+                    )}
+
+                    {bulkFiles.length === 0 && (
+                        <p className="text-xs text-gray-400">Select multiple images to upload. They will display one after another in the hero slider.</p>
+                    )}
+                </div>
+
+                {/* Current Slides */}
+                <h3 className="text-md font-medium text-gray-700">Current Slides</h3>
+                {sliders.length === 0 ? (
+                    <div className="text-center py-8 text-gray-400">No slides yet. Upload images above to get started.</div>
+                ) : (
+                    <div className="space-y-3">
+                        {sliders.map((slider) => (
+                            <div key={slider.id}>
+                                <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex items-center gap-4">
+                                    <img src={slider.image} alt="" className="w-28 h-20 rounded-lg object-cover shrink-0 bg-gray-100" />
+                                    <div className="flex-1 min-w-0">
+                                        {slider.title && <p className="font-medium text-gray-800 truncate text-sm">{slider.title}</p>}
+                                        <p className="text-xs text-gray-400">
+                                            Order: {slider.sort_order} · {slider.is_active ? 'Active' : 'Inactive'}
+                                            {slider.start_date && ` · Starts: ${slider.start_date}`}
+                                            {slider.end_date && ` · Ends: ${slider.end_date}`}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        <button onClick={() => handleToggleActive(slider)} className={`px-3 py-1.5 text-xs rounded-lg font-medium ${slider.is_active ? 'bg-green-50 text-green-700 hover:bg-green-100' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>
+                                            {slider.is_active ? 'Active' : 'Inactive'}
+                                        </button>
+                                        <button onClick={() => setEditingId(slider.id)} className="px-3 py-1.5 text-xs bg-blue-50 text-blue-700 rounded-lg font-medium hover:bg-blue-100">Edit</button>
+                                        <button onClick={() => handleDelete(slider.id)} className="px-3 py-1.5 text-xs bg-red-50 text-red-700 rounded-lg font-medium hover:bg-red-100">Delete</button>
+                                    </div>
+                                </div>
+                                {editingId === slider.id && (
+                                    <div className="mt-3">
+                                        <SlideEditor
+                                            slider={slider}
+                                            onSave={handleEditSave}
+                                            onCancel={() => setEditingId(null)}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        ))}
                     </div>
                 )}
-
-                {bulkFiles.length === 0 && (
-                    <p className="text-xs text-gray-400">Select multiple images to upload. They will display one after another in the hero slider.</p>
-                )}
             </div>
-
-            {/* Current Slides */}
-            <h3 className="text-md font-medium text-gray-700">Current Slides</h3>
-            {sliders.length === 0 ? (
-                <div className="bg-white rounded-xl p-8 text-center text-gray-500 shadow-sm border">
-                    No slides yet. Upload images above to get started.
-                </div>
-            ) : (
-                <div className="space-y-3">
-                    {sliders.map((slider) => (
-                        <div key={slider.id}>
-                            <div className="bg-white rounded-xl p-4 shadow-sm border flex items-center gap-4">
-                                <img src={slider.image} alt="" className="w-28 h-20 rounded-lg object-cover shrink-0 bg-gray-100" />
-                                <div className="flex-1 min-w-0">
-                                    {slider.title && <p className="font-medium text-gray-800 truncate text-sm">{slider.title}</p>}
-                                    <p className="text-xs text-gray-400">
-                                        Order: {slider.sort_order} · {slider.is_active ? 'Active' : 'Inactive'}
-                                        {slider.start_date && ` · Starts: ${slider.start_date}`}
-                                        {slider.end_date && ` · Ends: ${slider.end_date}`}
-                                    </p>
-                                </div>
-                                <div className="flex items-center gap-2 shrink-0">
-                                    <button onClick={() => handleToggleActive(slider)} className={`px-3 py-1.5 text-xs rounded-lg font-medium ${slider.is_active ? 'bg-green-50 text-green-700 hover:bg-green-100' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>
-                                        {slider.is_active ? 'Active' : 'Inactive'}
-                                    </button>
-                                    <button onClick={() => setEditingId(slider.id)} className="px-3 py-1.5 text-xs bg-blue-50 text-blue-700 rounded-lg font-medium hover:bg-blue-100">Edit</button>
-                                    <button onClick={() => handleDelete(slider.id)} className="px-3 py-1.5 text-xs bg-red-50 text-red-700 rounded-lg font-medium hover:bg-red-100">Delete</button>
-                                </div>
-                            </div>
-                            {editingId === slider.id && (
-                                <div className="mt-3">
-                                    <SlideEditor
-                                        slider={slider}
-                                        onSave={handleEditSave}
-                                        onCancel={() => setEditingId(null)}
-                                    />
-                                </div>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
+        </AdminPanel>
     );
 }

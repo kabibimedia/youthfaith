@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Welcome from './pages/Welcome';
 import Home from './pages/Home';
+import LivePage from './pages/LivePage';
 import Events from './pages/Events';
 import Devotionals from './pages/Devotionals';
 import Quizzes from './pages/Quizzes';
@@ -36,6 +37,7 @@ export default function App() {
                     <Route path="challenges" element={<Challenges />} />
                     <Route path="blogs" element={<Blogs />} />
                     <Route path="leaderboard" element={<Leaderboard />} />
+                    <Route path="live/:id" element={<LivePage />} />
                     <Route path="profile/:id?" element={<Profile />} />
                 </Route>
             </Routes>

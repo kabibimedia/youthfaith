@@ -58,16 +58,22 @@ export default function Layout() {
                     <div className="flex items-center gap-3">
                         {user ? (
                             <>
-                                {user.is_admin && (
+                                <div className="hidden sm:flex items-center gap-2">
+                                    <span className="text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded-lg font-medium flex items-center gap-1">
+                                        ⭐ {user.points || 0}
+                                    </span>
+                                    <span className="text-xs bg-orange-50 text-orange-700 px-2 py-1 rounded-lg font-medium flex items-center gap-1">
+                                        🔥 {user.streak || 0}
+                                    </span>
+                                </div>
+                                {!!user.is_admin && (
                                     <NavLink to="/admin" className="hidden sm:block px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg text-sm font-medium hover:shadow-lg hover:shadow-orange-500/30 transition-all">
                                         ⚙️ Admin
                                     </NavLink>
                                 )}
-                                <NavLink to={`/profile/${user.id}`} className="flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white text-sm font-bold">
-                                        {user.name?.charAt(0).toUpperCase()}
-                                    </div>
-                                </NavLink>
+                                <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-red-500 transition-colors" title="Logout">
+                                    Logout
+                                </button>
                             </>
                         ) : (
                             <NavLink to="/login" className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:shadow-lg hover:shadow-purple-500/30 transition-all">

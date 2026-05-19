@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AdminDuesController;
+use App\Http\Controllers\Api\AdminLiveController;
 use App\Http\Controllers\Api\AnnouncementController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BlogController;
@@ -10,6 +11,7 @@ use App\Http\Controllers\Api\ChatController;
 use App\Http\Controllers\Api\DevotionalController;
 use App\Http\Controllers\Api\DuesController;
 use App\Http\Controllers\Api\EventController;
+use App\Http\Controllers\Api\LiveSessionController;
 use App\Http\Controllers\Api\MusicController;
 use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\PrayerController;
@@ -84,6 +86,7 @@ Route::prefix('users')->group(function () {
     Route::get('/birthdays/upcoming', [UserController::class, 'upcomingBirthdays']);
     Route::post('/birthdays/wish', [UserController::class, 'sendBirthdayWish'])->middleware('auth:sanctum');
     Route::get('/birthdays/wishes', [UserController::class, 'getBirthdayWishes'])->middleware('auth:sanctum');
+    Route::get('/search', [UserController::class, 'search']);
     Route::get('/{id}', [UserController::class, 'show']);
     Route::put('/', [UserController::class, 'update'])->middleware('auth:sanctum');
     Route::post('/avatar', [UserController::class, 'uploadAvatar'])->middleware('auth:sanctum');
@@ -101,6 +104,22 @@ Route::prefix('posts')->group(function () {
     Route::post('/{id}/comment', [PostController::class, 'comment'])->middleware('auth:sanctum');
     Route::get('/{id}/comments', [PostController::class, 'comments']);
     Route::post('/{id}/share', [PostController::class, 'share'])->middleware('auth:sanctum');
+    Route::get('/tagged/{userId}', [PostController::class, 'taggedPosts']);
+});
+
+Route::prefix('live')->group(function () {
+    Route::get('/', [LiveSessionController::class, 'index']);
+    Route::post('/start', [LiveSessionController::class, 'start'])->middleware('auth:sanctum');
+    Route::post('/{id}/end', [LiveSessionController::class, 'end'])->middleware('auth:sanctum');
+    Route::get('/{id}', [LiveSessionController::class, 'show']);
+    Route::post('/{id}/join', [LiveSessionController::class, 'join'])->middleware('auth:sanctum');
+    Route::post('/{id}/leave', [LiveSessionController::class, 'leave'])->middleware('auth:sanctum');
+    Route::post('/{id}/heart', [LiveSessionController::class, 'heart'])->middleware('auth:sanctum');
+    Route::post('/{id}/gift', [LiveSessionController::class, 'gift'])->middleware('auth:sanctum');
+    Route::get('/{id}/gifts', [LiveSessionController::class, 'gifts']);
+    Route::post('/{id}/comment', [LiveSessionController::class, 'comment'])->middleware('auth:sanctum');
+    Route::get('/{id}/comments', [LiveSessionController::class, 'comments']);
+    Route::post('/verify-stream-key', [LiveSessionController::class, 'verifyStreamKey']);
 });
 
 Route::prefix('events')->group(function () {
@@ -195,17 +214,43 @@ Route::prefix('dues')->middleware('auth:sanctum')->group(function () {
     Route::get('/payments', [DuesController::class, 'payments']);
     Route::get('/statement', [DuesController::class, 'statement']);
     Route::get('/statement/pdf', [DuesController::class, 'statementPdf']);
+    Route::get('/statement/export', [DuesController::class, 'statementExport']);
     Route::post('/pay', [DuesController::class, 'store']);
     Route::get('/pledges', [DuesController::class, 'pledges']);
     Route::post('/pledges', [DuesController::class, 'storePledge']);
     Route::put('/pledges/{pledge}/cancel', [DuesController::class, 'cancelPledge']);
+    Route::post('/verify-card', [DuesController::class, 'verifyCard']);
+    Route::post('/request-code', [DuesController::class, 'requestCode']);
 });
 
 Route::prefix('admin/dues')->middleware('auth:sanctum')->group(function () {
     Route::get('/payments', [AdminDuesController::class, 'payments']);
+    Route::get('/payments/export', [AdminDuesController::class, 'exportPayments']);
     Route::post('/payments/{payment}/approve', [AdminDuesController::class, 'approve']);
     Route::post('/payments/{payment}/reject', [AdminDuesController::class, 'reject']);
     Route::post('/payments/upload', [AdminDuesController::class, 'uploadPayment']);
     Route::get('/members', [AdminDuesController::class, 'members']);
     Route::post('/codes/generate', [AdminDuesController::class, 'generateCodes']);
+    Route::post('/codes/generate-for-users', [AdminDuesController::class, 'generateCodesForUsers']);
+    Route::get('/card-requests', [AdminDuesController::class, 'cardRequests']);
+    Route::post('/card-requests/{id}/approve', [AdminDuesController::class, 'approveCardRequest']);
+    Route::post('/card-requests/{id}/reject', [AdminDuesController::class, 'rejectCardRequest']);
+    Route::post('/verify-user-card', [AdminDuesController::class, 'verifyUserCard']);
+    Route::get('/pending-verifications', [AdminDuesController::class, 'pendingVerifications']);
+});
+
+Route::prefix('admin/super')->middleware(['auth:sanctum', 'role:super_admin'])->group(function () {
+    Route::get('/admins', [SuperAdminController::class, 'admins']);
+    Route::put('/admins/{user}', [SuperAdminController::class, 'updateAdminRole']);
+    Route::delete('/admins/{user}', [SuperAdminController::class, 'deleteAdmin']);
+    Route::post('/admins/{user}/promote', [SuperAdminController::class, 'promoteToSuperAdmin']);
+    Route::get('/activity-logs', [SuperAdminController::class, 'activityLogs']);
+});
+
+Route::prefix('admin/live')->middleware('auth:sanctum')->group(function () {
+    Route::get('/', [AdminLiveController::class, 'index']);
+    Route::get('/active', [AdminLiveController::class, 'activeStreams']);
+    Route::post('/generate-key', [AdminLiveController::class, 'generateStreamKey']);
+    Route::post('/{session}/assign-key', [AdminLiveController::class, 'assignStreamKey']);
+    Route::post('/{session}/force-end', [AdminLiveController::class, 'forceEndStream']);
 });

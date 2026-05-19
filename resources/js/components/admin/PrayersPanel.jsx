@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { adminService } from '../../services/api';
+import AdminPanel from './AdminPanel';
 
 export default function PrayersPanel() {
     const [prayers, setPrayers] = useState([]);
@@ -32,22 +33,22 @@ export default function PrayersPanel() {
     };
 
     if (loading) {
-        return <div className="text-center py-8 text-gray-500">Loading...</div>;
+        return (
+            <AdminPanel title="Prayer Requests">
+                <div className="space-y-3">
+                    {[1, 2, 3, 4].map(i => <div key={i} className="h-14 bg-gray-50 rounded-xl animate-pulse" />)}
+                </div>
+            </AdminPanel>
+        );
     }
 
     return (
-        <div className="bg-white rounded-xl p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-800">Prayer Requests</h2>
-                <input
-                    type="text"
-                    placeholder="Search prayers..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-            </div>
-
+        <AdminPanel
+            title={`Prayer Requests (${prayers.length})`}
+            search={search}
+            onSearch={(e) => setSearch(e.target.value)}
+            searchPlaceholder="Search prayers..."
+        >
             <div className="space-y-4">
                 {prayers.map(prayer => (
                     <div key={prayer.id} className="border-b pb-4 last:border-0">
@@ -85,6 +86,6 @@ export default function PrayersPanel() {
             {prayers.length === 0 && (
                 <div className="text-center py-8 text-gray-500">No prayer requests found</div>
             )}
-        </div>
+        </AdminPanel>
     );
 }

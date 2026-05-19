@@ -18,6 +18,7 @@ export default function StatementModal({ onClose }) {
     const [total, setTotal] = useState(0);
     const [lastPaid, setLastPaid] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [showDownloadMenu, setShowDownloadMenu] = useState(false);
 
     useEffect(() => {
         Promise.all([
@@ -48,22 +49,55 @@ export default function StatementModal({ onClose }) {
                     </div>
                     <div className="flex items-center gap-2">
                         {payments.length > 0 && (
-                            <button
-                                onClick={async () => {
-                                    try {
-                                        const res = await duesService.downloadStatementPdf();
-                                        const url = URL.createObjectURL(new Blob([res.data]));
-                                        const a = document.createElement('a');
-                                        a.href = url;
-                                        a.download = `statement-${new Date().toISOString().split('T')[0]}.pdf`;
-                                        a.click();
-                                        URL.revokeObjectURL(url);
-                                    } catch (err) { console.error(err); }
-                                }}
-                                className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-medium hover:bg-purple-700 flex items-center gap-1"
-                            >
-                                ⬇ PDF
-                            </button>
+                            <div className="relative">
+                                <button
+                                    onClick={() => setShowDownloadMenu(!showDownloadMenu)}
+                                    className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-medium hover:bg-purple-700 flex items-center gap-1"
+                                >
+                                    ⬇ Download
+                                </button>
+                                {showDownloadMenu && (
+                                    <>
+                                        <div className="fixed inset-0 z-10" onClick={() => setShowDownloadMenu(false)} />
+                                        <div className="absolute right-0 mt-1 bg-white rounded-xl shadow-xl border border-gray-200 py-1 z-20 min-w-[120px]">
+                                            <button
+                                                onClick={async () => {
+                                                    setShowDownloadMenu(false);
+                                                    try {
+                                                        const res = await duesService.downloadStatement({ format: 'csv' });
+                                                        const url = URL.createObjectURL(new Blob([res.data]));
+                                                        const a = document.createElement('a');
+                                                        a.href = url;
+                                                        a.download = `statement-${new Date().toISOString().split('T')[0]}.csv`;
+                                                        a.click();
+                                                        URL.revokeObjectURL(url);
+                                                    } catch (err) { console.error(err); }
+                                                }}
+                                                className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                            >
+                                                📄 CSV
+                                            </button>
+                                            <button
+                                                onClick={async () => {
+                                                    setShowDownloadMenu(false);
+                                                    try {
+                                                        const res = await duesService.downloadStatement({ format: 'pdf' });
+                                                        const url = URL.createObjectURL(new Blob([res.data]));
+                                                        const a = document.createElement('a');
+                                                        a.href = url;
+                                                        a.download = `statement-${new Date().toISOString().split('T')[0]}.pdf`;
+                                                        a.click();
+                                                        URL.revokeObjectURL(url);
+                                                    } catch (err) { console.error(err); }
+                                                }}
+                                                className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                            >
+                                                📑 PDF
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
                         )}
                         <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
                     </div>

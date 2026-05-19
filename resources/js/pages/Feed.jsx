@@ -2,8 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { postService, statusService, userService } from '../services/api';
+import { postService, statusService, userService, liveService } from '../services/api';
 import StatusBar from '../components/StatusBar';
+import LiveStream from '../components/live/LiveStream';
+import LiveViewer from '../components/live/LiveViewer';
 
 const POST_TYPES = [
     { type: 'text', label: 'Text', icon: '📝', color: 'purple' },
@@ -123,11 +125,17 @@ function ReactionButton({ post, userReacted, onReact }) {
     );
 }
 
+function avatarSrc(path) {
+    if (!path) return null;
+    if (path.startsWith('http') || path.startsWith('/storage/')) return path;
+    return `/storage/${path}`;
+}
+
 function UserAvatar({ user }) {
     if (user?.avatar) {
         return (
             <div className="w-10 h-10 rounded-full overflow-hidden">
-                <img src={`/storage/${user.avatar}`} alt="" className="w-full h-full object-cover" />
+                <img src={avatarSrc(user.avatar)} alt="" className="w-full h-full object-cover" />
             </div>
         );
     }
@@ -140,6 +148,14 @@ function UserAvatar({ user }) {
 
 function PostTypeTag({ type }) {
     const config = POST_TYPES.find(p => p.type === type) || POST_TYPES[0];
+    if (type === 'live') {
+        return (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                LIVE
+            </span>
+        );
+    }
     return (
         <span className={`text-xs px-2 py-0.5 rounded-full bg-${config.color}-100 text-${config.color}-700`}>
             {config.icon} {config.label}
@@ -208,6 +224,12 @@ export default function Feed() {
     const [mediaFile, setMediaFile] = useState(null);
     const [posting, setPosting] = useState(false);
     const [showTypeSelector, setShowTypeSelector] = useState(false);
+    const [location, setLocation] = useState('');
+    const [taggedUsers, setTaggedUsers] = useState([]);
+    const [tagSearch, setTagSearch] = useState('');
+    const [tagSearchResults, setTagSearchResults] = useState([]);
+    const [showTagSearch, setShowTagSearch] = useState(false);
+    const tagSearchRef = useRef(null);
     const [editingPost, setEditingPost] = useState(null);
     const [editContent, setEditContent] = useState('');
     const [showMenu, setShowMenu] = useState(null);
@@ -231,8 +253,24 @@ export default function Feed() {
     const [receivedWishes, setReceivedWishes] = useState([]);
     const [showWishes, setShowWishes] = useState(false);
     const [upcomingBirthdays, setUpcomingBirthdays] = useState([]);
+    const [showLiveStream, setShowLiveStream] = useState(false);
+    const [liveViewSession, setLiveViewSession] = useState(null);
+    const [liveSessions, setLiveSessions] = useState([]);
     const fileInputRef = useRef(null);
     const menuRef = useRef(null);
+
+    function TagBadge({ tags }) {
+        if (!tags?.length) return null;
+        return (
+            <div className="flex flex-wrap gap-1.5 mb-2">
+                {tags.map(t => (
+                    <Link key={t.id} to={`/profile/${t.id}`} className="text-xs text-purple-600 hover:text-purple-800 bg-purple-50 px-2 py-0.5 rounded-full">
+                        @{t.name}
+                    </Link>
+                ))}
+            </div>
+        );
+    }
 
     const renderPostContent = (post) => {
         if (post.shared_from_post_id && post.shared_from) {
@@ -246,6 +284,8 @@ export default function Feed() {
                         </Link>
                     </div>
                     <div className="ml-12 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                        {post.shared_from.location && <p className="text-xs text-gray-400 mb-1">📍 {post.shared_from.location}</p>}
+                        <TagBadge tags={post.shared_from.tags} />
                         <p className="text-gray-700 text-sm mb-2">{post.shared_from.content}</p>
                         {post.shared_from.media_url && (
                             post.shared_from.media_type === 'video' ? (
@@ -268,6 +308,8 @@ export default function Feed() {
         }
         return (
             <>
+                {post.location && <p className="text-xs text-gray-400 mb-1">📍 {post.location}</p>}
+                <TagBadge tags={post.tags} />
                 <p className="text-gray-700 mb-4 text-lg leading-relaxed">{post.content}</p>
                 {post.media_url && (
                     post.media_type === 'video' ? (
@@ -291,7 +333,33 @@ export default function Feed() {
     useEffect(() => {
         loadPosts();
         loadDailyContent();
+        loadLiveSessions();
+        const iv = setInterval(loadLiveSessions, 10000);
+        return () => clearInterval(iv);
     }, []);
+
+    const loadLiveSessions = async () => {
+        try {
+            const res = await liveService.getLiveSessions();
+            setLiveSessions(res.data || []);
+        } catch {}
+    };
+
+    useEffect(() => {
+        if (tagSearch.length < 2) {
+            setTagSearchResults([]);
+            return;
+        }
+        const timer = setTimeout(async () => {
+            try {
+                const res = await userService.searchUsers(tagSearch);
+                setTagSearchResults(res.data || []);
+            } catch {
+                setTagSearchResults([]);
+            }
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [tagSearch]);
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -301,6 +369,9 @@ export default function Feed() {
             if (!e.target.closest('.share-container')) {
                 setSharePost(null);
                 setShareType(null);
+            }
+            if (tagSearchRef.current && !tagSearchRef.current.contains(e.target)) {
+                setShowTagSearch(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -443,15 +514,21 @@ export default function Feed() {
             const formData = new FormData();
             formData.append('content', newPost);
             formData.append('post_type', postType);
+            if (location) formData.append('location', location);
+            taggedUsers.forEach((uid, i) => formData.append(`tagged_users[${i}]`, uid));
             if (mediaFile) {
                 formData.append('media', mediaFile);
             }
-            
+
             const res = await postService.createPost(formData);
             setPosts([res.data, ...posts]);
             setNewPost('');
             setMediaFile(null);
             setPostType('text');
+            setLocation('');
+            setTaggedUsers([]);
+            setTagSearch('');
+            setTagSearchResults([]);
             setShowTypeSelector(false);
         } catch (err) {
             console.error(err);
@@ -611,6 +688,29 @@ export default function Feed() {
                 </div>
             )}
 
+            {liveSessions.length > 0 && (
+                <div className="bg-gradient-to-r from-red-600 via-rose-600 to-pink-600 rounded-2xl p-4 shadow-lg shadow-red-200 overflow-hidden">
+                    <div className="flex items-center gap-3 overflow-x-auto">
+                        <span className="flex items-center gap-1.5 text-white text-sm font-semibold shrink-0">
+                            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                            LIVE
+                        </span>
+                        {liveSessions.map(s => (
+                            <button
+                                key={s.id}
+                                onClick={() => setLiveViewSession(s)}
+                                className="flex items-center gap-2 bg-white/15 hover:bg-white/25 text-white rounded-full px-3 py-1.5 text-sm transition-all shrink-0"
+                            >
+                                <div className="w-6 h-6 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center text-white text-xs font-bold">
+                                    {s.user?.name?.charAt(0) || '?'}
+                                </div>
+                                <span className="font-medium">{s.user?.name}</span>
+                                <span className="text-white/60 text-xs">{s.viewer_count || 0} watching</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main Feed - Left Column */}
                 <div className="lg:col-span-2 space-y-6">
@@ -640,7 +740,7 @@ export default function Feed() {
                                         {showTypeSelector && (
                                             <div className="mt-3 p-3 bg-white rounded-xl border border-purple-100">
                                                 <p className="text-xs text-gray-500 mb-2">Select post type:</p>
-                                                <PostTypeSelector selected={postType} onSelect={setPostType} />
+                                                <PostTypeSelector selected={postType} onSelect={(t) => { if (t === 'live') { setShowLiveStream(true); } else { setPostType(t); } }} />
                                                 
                                                 {needsMedia && (
                                                     <div className="mt-3">
@@ -669,14 +769,88 @@ export default function Feed() {
                                         )}
                                     </div>
                                     
+                                    <div className="flex flex-wrap gap-2 mt-3">
+                                        <input
+                                            value={location}
+                                            onChange={(e) => setLocation(e.target.value)}
+                                            placeholder="Add location..."
+                                            className="flex-1 min-w-[140px] px-3 py-1.5 bg-white border border-purple-100 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
+                                        />
+                                        <div className="relative" ref={tagSearchRef}>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowTagSearch(!showTagSearch)}
+                                                className="px-3 py-1.5 bg-white border border-purple-100 rounded-lg text-sm text-purple-600 hover:bg-purple-50 flex items-center gap-1"
+                                            >
+                                                <span>@</span>
+                                                <span>{taggedUsers.length ? `Tagged ${taggedUsers.length}` : 'Tag people'}</span>
+                                            </button>
+                                            {showTagSearch && (
+                                                <div className="absolute left-0 sm:right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-20 min-w-[220px] sm:min-w-[260px]">
+                                                    <input
+                                                        value={tagSearch}
+                                                        onChange={(e) => setTagSearch(e.target.value)}
+                                                        placeholder="Search users..."
+                                                        className="w-full px-3 py-1.5 border-b border-gray-100 text-sm focus:outline-none"
+                                                        autoFocus
+                                                    />
+                                                    <div className="max-h-40 overflow-y-auto">
+                                                        {tagSearchResults.map(u => (
+                                                            <button
+                                                                key={u.id}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    if (!taggedUsers.includes(u.id)) {
+                                                                        setTaggedUsers([...taggedUsers, u.id]);
+                                                                    }
+                                                                    setTagSearch('');
+                                                                    setTagSearchResults([]);
+                                                                    setShowTagSearch(false);
+                                                                }}
+                                                                className="w-full px-3 py-2 text-left text-sm hover:bg-purple-50 flex items-center gap-2"
+                                                            >
+                                                                <div className="w-6 h-6 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-bold">
+                                                                    {u.name?.charAt(0) || '?'}
+                                                                </div>
+                                                                <span>{u.name}</span>
+                                                            </button>
+                                                        ))}
+                                                        {tagSearch.length >= 2 && tagSearchResults.length === 0 && (
+                                                            <p className="px-3 py-2 text-xs text-gray-400">No users found</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {taggedUsers.length > 0 && (
+                                        <div className="flex flex-wrap gap-1.5 mt-2">
+                                            {taggedUsers.map(uid => (
+                                                <span key={uid} className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs">
+                                                    @User {uid}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setTaggedUsers(taggedUsers.filter(id => id !== uid))}
+                                                        className="hover:text-red-500"
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
                                     <div className="flex justify-between items-center mt-3">
                                         <PostTypeTag type={postType} />
                                         <button 
                                             type="submit" 
                                             disabled={posting || !newPost.trim() || (needsMedia && !mediaFile)}
-                                            className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-purple-500/30 disabled:opacity-50 transition-all flex items-center gap-2"
+                                            className={`px-6 py-2 rounded-xl font-medium hover:shadow-lg disabled:opacity-50 transition-all flex items-center gap-2 ${
+                                                postType === 'live'
+                                                    ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white hover:shadow-red-500/30 animate-pulse'
+                                                    : 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:shadow-purple-500/30'
+                                            }`}
                                         >
-                                            {posting ? '⏳ Posting...' : '✨ Share'}
+                                            {posting ? '⏳ Posting...' : postType === 'live' ? '🔴 Go Live' : '✨ Share'}
                                         </button>
                                     </div>
                                 </div>
@@ -697,7 +871,11 @@ export default function Feed() {
                         </div>
                     ) : (
                         posts.map(post => (
-                            <div key={post.id} className="bg-white rounded-2xl p-5 shadow-lg shadow-purple-100 border border-purple-50 hover:shadow-xl transition-all">
+                            <div key={post.id} className={`bg-white rounded-2xl p-5 shadow-lg hover:shadow-xl transition-all ${
+                                post.post_type === 'live'
+                                    ? 'shadow-red-100 border border-red-200 ring-1 ring-red-300'
+                                    : 'shadow-purple-100 border border-purple-50'
+                            }`}>
                                 <div className="flex items-center gap-3 mb-4">
                                     <UserAvatar user={post.user} />
                                     <div className="flex-1">
@@ -1138,6 +1316,14 @@ export default function Feed() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {showLiveStream && (
+                <LiveStream onClose={() => { setShowLiveStream(false); loadLiveSessions(); }} />
+            )}
+
+            {liveViewSession && (
+                <LiveViewer sessionId={liveViewSession.id} onClose={() => setLiveViewSession(null)} />
             )}
         </div>
     );

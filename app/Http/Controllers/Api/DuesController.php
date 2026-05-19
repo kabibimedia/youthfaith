@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\DuesCardRequest;
 use App\Models\DuesPayment;
 use App\Models\Pledge;
+use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -166,6 +168,104 @@ class DuesController extends Controller
         return Pdf::loadHTML($html)->download('statement-'.now()->format('Y-m-d').'.pdf');
     }
 
+    public function statementExport(Request $request)
+    {
+        $user = request()->user();
+
+        $payments = DuesPayment::where('user_id', $user->id)
+            ->where('status', 'approved')
+            ->oldest()
+            ->get();
+
+        if ($request->format === 'csv') {
+            $headers = [
+                'Content-Type' => 'text/csv',
+                'Content-Disposition' => 'attachment; filename="statement-'.now()->format('Y-m-d').'.csv"',
+            ];
+
+            $callback = function () use ($payments) {
+                $handle = fopen('php://output', 'w');
+                fputcsv($handle, ['#', 'Date', 'Type', 'Reference', 'Period', 'Method', 'Amount (GHS)', 'Balance (GHS)']);
+
+                $runningBalance = 0;
+                foreach ($payments as $i => $p) {
+                    $runningBalance += (float) $p->amount;
+                    fputcsv($handle, [
+                        $i + 1,
+                        $p->created_at->format('Y-m-d'),
+                        ucfirst($p->type),
+                        $p->reference_number ?? '',
+                        $p->period_coverage ?? '',
+                        $p->payment_method ?? '',
+                        number_format((float) $p->amount, 2),
+                        number_format($runningBalance, 2),
+                    ]);
+                }
+
+                fclose($handle);
+            };
+
+            return response()->stream($callback, 200, $headers);
+        }
+
+        // Default: PDF
+        $runningBalance = 0;
+        $rows = '';
+        foreach ($payments as $i => $p) {
+            $runningBalance += (float) $p->amount;
+            $rows .= '<tr>
+                <td>'.($i + 1).'</td>
+                <td>'.$p->created_at->format('d M Y').'</td>
+                <td>'.ucfirst($p->type).'</td>
+                <td>'.e($p->reference_number ?? '—').'</td>
+                <td>'.e($p->period_coverage ?? '—').'</td>
+                <td>'.e($p->payment_method ?? '—').'</td>
+                <td style="text-align:right">₵'.number_format((float) $p->amount, 2).'</td>
+                <td style="text-align:right">₵'.number_format($runningBalance, 2).'</td>
+            </tr>';
+        }
+
+        $total = number_format($runningBalance, 2);
+        $html = '
+        <style>
+            body { font-family: DejaVu Sans, sans-serif; font-size: 10px; color: #333; }
+            h1 { font-size: 18px; text-align: center; color: #7c3aed; margin-bottom: 4px; }
+            .subtitle { text-align: center; color: #666; font-size: 11px; margin-bottom: 20px; }
+            .info { margin-bottom: 16px; padding: 10px; background: #f5f3ff; border-radius: 6px; }
+            .info table { width: 100%; font-size: 10px; }
+            .info td { padding: 2px 6px; }
+            table.wide { width: 100%; border-collapse: collapse; }
+            table.wide th { background: #7c3aed; color: #fff; padding: 6px 8px; text-align: left; font-size: 9px; text-transform: uppercase; }
+            table.wide td { padding: 5px 8px; border-bottom: 1px solid #eee; }
+            table.wide tr:nth-child(even) td { background: #fafafa; }
+            .total-row td { font-weight: bold; border-top: 2px solid #333; padding-top: 8px; }
+            .footer { text-align: center; color: #999; font-size: 8px; margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px; }
+        </style>
+        <h1>📄 Payment Statement</h1>
+        <p class="subtitle">YouthFaith &mdash; Dues &amp; Contributions</p>
+        <div class="info">
+            <table>
+                <tr><td><strong>Member:</strong> '.e($user->name).'</td><td><strong>Card Code:</strong> '.e($user->dues_card_code ?? 'N/A').'</td></tr>
+                <tr><td><strong>Email:</strong> '.e($user->email).'</td><td><strong>Generated:</strong> '.now()->format('d M Y').'</td></tr>
+            </table>
+        </div>
+        <table class="wide">
+            <thead>
+                <tr><th>#</th><th>Date</th><th>Type</th><th>Reference</th><th>Period</th><th>Method</th><th style="text-align:right">Amount</th><th style="text-align:right">Balance</th></tr>
+            </thead>
+            <tbody>'.$rows.'
+                <tr class="total-row">
+                    <td colspan="6" style="text-align:right">Total</td>
+                    <td style="text-align:right;color:#059669">₵'.$total.'</td>
+                    <td style="text-align:right;color:#2563eb">₵'.$total.'</td>
+                </tr>
+            </tbody>
+        </table>
+        <p class="footer">Statement generated by YouthFaith &bull; '.now()->format('d M Y H:i').'</p>';
+
+        return Pdf::loadHTML($html)->download('statement-'.now()->format('Y-m-d').'.pdf');
+    }
+
     public function store(Request $request): JsonResponse
     {
         $request->validate([
@@ -232,5 +332,70 @@ class DuesController extends Controller
         $pledge->update(['status' => 'cancelled']);
 
         return response()->json($pledge);
+    }
+
+    public function verifyCard(Request $request): JsonResponse
+    {
+        $request->validate([
+            'code' => 'required|string|size:5',
+            'surname' => 'required|string|max:255',
+            'firstname' => 'required|string|max:255',
+        ]);
+
+        $code = strtoupper($request->code);
+        $user = User::where('dues_card_code', $code)
+            ->where('is_member', true)
+            ->where('surname', $request->surname)
+            ->where('firstname', $request->firstname)
+            ->first();
+
+        if ($user) {
+            return response()->json([
+                'match' => true,
+                'message' => 'Code verified. This card belongs to '.$user->firstname.' '.$user->surname.'.',
+            ]);
+        }
+
+        $anyUser = User::where('dues_card_code', $code)->where('is_member', true)->first();
+        if ($anyUser) {
+            return response()->json([
+                'match' => false,
+                'message' => 'Code exists but the name does not match. Please check your details.',
+            ]);
+        }
+
+        return response()->json([
+            'match' => false,
+            'message' => 'No matching record found for this code.',
+        ]);
+    }
+
+    public function requestCode(Request $request): JsonResponse
+    {
+        $request->validate([
+            'surname' => 'required|string|max:255',
+            'firstname' => 'required|string|max:255',
+        ]);
+
+        $existing = DuesCardRequest::where('user_id', $request->user()->id)
+            ->where('status', 'pending')
+            ->first();
+
+        if ($existing) {
+            return response()->json([
+                'message' => 'You already have a pending request. An admin will review it shortly.',
+                'request' => $existing,
+            ]);
+        }
+
+        $cardRequest = DuesCardRequest::create([
+            'user_id' => $request->user()->id,
+            'status' => 'pending',
+        ]);
+
+        return response()->json([
+            'message' => 'Your request has been submitted. An admin will review it shortly.',
+            'request' => $cardRequest,
+        ], 201);
     }
 }

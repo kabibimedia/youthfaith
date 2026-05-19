@@ -19,8 +19,9 @@ class AuthController extends Controller
             'othername' => 'nullable|string|max:255',
             'username' => 'nullable|string|max:255|unique:users',
             'email' => 'required|string|email|max:255|unique:users',
-            'date_of_birth' => 'nullable|date|before:today',
+            'date_of_birth' => 'required|date|before:-14 years',
             'location' => 'nullable|string|max:255',
+            'position' => 'nullable|string|max:255',
             'password' => 'required|string|min:8|confirmed',
             'is_member' => 'boolean',
             'has_dues_card' => 'boolean',
@@ -39,6 +40,7 @@ class AuthController extends Controller
             'email' => $request->email,
             'date_of_birth' => $request->date_of_birth,
             'location' => $request->location,
+            'position' => $request->position,
             'password' => $request->password,
             'is_member' => $request->boolean('is_member'),
             'has_dues_card' => $request->boolean('has_dues_card'),
@@ -49,11 +51,21 @@ class AuthController extends Controller
         }
 
         if ($request->has_dues_card && $request->dues_card_code) {
-            $data['dues_card_code'] = strtoupper($request->dues_card_code);
+            $code = strtoupper($request->dues_card_code);
+            $data['dues_card_code'] = $code;
             $data['dues_card_issued_at'] = now();
+
+            $existing = User::where('dues_card_code', $code)
+                ->where('is_member', true)
+                ->first();
+
+            $data['dues_card_status'] = $existing ? 'verified' : 'pending';
+        } elseif ($request->has_dues_card && ! $request->dues_card_code) {
+            $data['dues_card_status'] = 'pending';
         } elseif (! $request->has_dues_card) {
             $data['dues_card_code'] = $this->generateDuesCode();
             $data['dues_card_issued_at'] = now();
+            $data['dues_card_status'] = 'verified';
         }
 
         $user = User::create($data);

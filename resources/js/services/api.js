@@ -38,6 +38,7 @@ export const authService = {
 
 export const userService = {
     getUser: (id) => api.get(`/users/${id}`),
+    searchUsers: (query) => api.get(`/users/search?q=${encodeURIComponent(query)}`),
     updateProfile: (data) => api.put('/users', data),
     uploadAvatar: (formData) => api.post('/users/avatar', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -69,6 +70,7 @@ export const postService = {
     commentPost: (id, comment, parentId = null) => api.post(`/posts/${id}/comment`, { comment, parent_id: parentId }),
     getComments: (id) => api.get(`/posts/${id}/comments`),
     sharePost: (id) => api.post(`/posts/${id}/share`),
+    getTaggedPosts: (userId) => api.get(`/posts/tagged/${userId}`),
 };
 
 export const eventService = {
@@ -181,7 +183,7 @@ export const adminService = {
     updateBlog: (id, data) => api.put(`/admin/blogs/${id}`, data),
     deleteBlog: (id) => api.delete(`/admin/blogs/${id}`),
     getClients: (params) => api.get('/admin/clients', { params }),
-    exportClients: (params) => api.get('/admin/clients/export', { params, responseType: 'blob' }),
+    downloadClients: (params) => api.get('/admin/clients/export', { params, responseType: 'blob' }),
     uploadFile: (formData) => api.post('/admin/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
     }),
@@ -192,16 +194,20 @@ export const duesService = {
     getPayments: (params) => api.get('/dues/payments', { params }),
     getStatement: () => api.get('/dues/statement'),
     downloadStatementPdf: () => api.get('/dues/statement/pdf', { responseType: 'blob' }),
+    downloadStatement: (params) => api.get('/dues/statement/export', { params, responseType: 'blob' }),
     pay: (formData) => api.post('/dues/pay', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
     }),
     getPledges: () => api.get('/dues/pledges'),
     createPledge: (data) => api.post('/dues/pledges', data),
     cancelPledge: (id) => api.put(`/dues/pledges/${id}/cancel`),
+    verifyCard: (data) => api.post('/dues/verify-card', data),
+    requestCode: () => api.post('/dues/request-code'),
 };
 
 export const adminDuesService = {
     getPayments: (params) => api.get('/admin/dues/payments', { params }),
+    downloadPayments: (params) => api.get('/admin/dues/payments/export', { params, responseType: 'blob' }),
     approvePayment: (id) => api.post(`/admin/dues/payments/${id}/approve`),
     rejectPayment: (id, notes) => api.post(`/admin/dues/payments/${id}/reject`, { notes }),
     uploadPayment: (formData) => api.post('/admin/dues/payments/upload', formData, {
@@ -209,6 +215,42 @@ export const adminDuesService = {
     }),
     getMembers: (params) => api.get('/admin/dues/members', { params }),
     generateCodes: (count) => api.post('/admin/dues/codes/generate', { count }),
+    generateCodesForUsers: (userIds) => api.post('/admin/dues/codes/generate-for-users', { user_ids: userIds }),
+    getCardRequests: () => api.get('/admin/dues/card-requests'),
+    approveCardRequest: (id) => api.post(`/admin/dues/card-requests/${id}/approve`),
+    rejectCardRequest: (id, notes) => api.post(`/admin/dues/card-requests/${id}/reject`, { notes }),
+    getPendingVerifications: () => api.get('/admin/dues/pending-verifications'),
+    verifyUserCard: (userId, status, notes) => api.post('/admin/dues/verify-user-card', { user_id: userId, status, notes }),
+};
+
+export const superAdminService = {
+    getAdmins: () => api.get('/admin/super/admins'),
+    updateAdminRole: (userId, role) => api.put(`/admin/super/admins/${userId}`, { role }),
+    deleteAdmin: (userId) => api.delete(`/admin/super/admins/${userId}`),
+    promoteToSuperAdmin: (userId) => api.post(`/admin/super/admins/${userId}/promote`),
+    getActivityLogs: (params) => api.get('/admin/super/activity-logs', { params }),
+};
+
+export const adminLiveService = {
+    getSessions: () => api.get('/admin/live'),
+    getActiveStreams: () => api.get('/admin/live/active'),
+    generateStreamKey: () => api.post('/admin/live/generate-key'),
+    assignStreamKey: (sessionId, streamKey) => api.post(`/admin/live/${sessionId}/assign-key`, { stream_key: streamKey }),
+    forceEndStream: (sessionId) => api.post(`/admin/live/${sessionId}/force-end`),
+};
+
+export const liveService = {
+    getLiveSessions: () => api.get('/live'),
+    getLiveSession: (id) => api.get(`/live/${id}`),
+    startLive: (data) => api.post('/live/start', data),
+    endLive: (id, createPost = true) => api.post(`/live/${id}/end`, { create_post: createPost }),
+    joinLive: (id) => api.post(`/live/${id}/join`),
+    leaveLive: (id) => api.post(`/live/${id}/leave`),
+    sendHeart: (id) => api.post(`/live/${id}/heart`),
+    sendGift: (id, giftType) => api.post(`/live/${id}/gift`, { gift_type: giftType }),
+    getGifts: (id) => api.get(`/live/${id}/gifts`),
+    sendComment: (id, message) => api.post(`/live/${id}/comment`, { message }),
+    getComments: (id) => api.get(`/live/${id}/comments`),
 };
 
 export default api;

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { adminService } from '../../services/api';
+import AdminPanel from './AdminPanel';
 
 export default function EventsPanel() {
     const [events, setEvents] = useState([]);
@@ -70,30 +71,30 @@ export default function EventsPanel() {
     };
 
     if (loading) {
-        return <div className="text-center py-8 text-gray-500">Loading...</div>;
+        return (
+            <AdminPanel title="Events Management">
+                <div className="space-y-3">
+                    {[1, 2, 3, 4].map(i => <div key={i} className="h-14 bg-gray-50 rounded-xl animate-pulse" />)}
+                </div>
+            </AdminPanel>
+        );
     }
 
-    return (
-        <div className="bg-white rounded-xl p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-800">Events Management</h2>
-                <div className="flex gap-3">
-                    <input
-                        type="text"
-                        placeholder="Search events..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    />
-                    <button
-                        onClick={() => { setEditingEvent(null); setFormData({ title: '', description: '', event_date: '', location: '', max_attendees: '' }); setShowModal(true); }}
-                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-                    >
-                        + Add Event
-                    </button>
-                </div>
-            </div>
+    const actionBtn = (
+        <button onClick={() => { setEditingEvent(null); setFormData({ title: '', description: '', event_date: '', location: '', max_attendees: '' }); setShowModal(true); }}
+            className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl text-sm font-medium hover:shadow-lg transition-all">
+            + Add Event
+        </button>
+    );
 
+    return (
+        <AdminPanel
+            title={`Events (${events.length})`}
+            search={search}
+            onSearch={(e) => setSearch(e.target.value)}
+            searchPlaceholder="Search events..."
+            action={actionBtn}
+        >
             <div className="grid md:grid-cols-2 gap-4">
                 {events.map(event => (
                     <div key={event.id} className="border rounded-xl p-4 hover:shadow-md transition-shadow">
@@ -119,58 +120,59 @@ export default function EventsPanel() {
             )}
 
             {showModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl p-6 w-full max-w-md">
-                        <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-lg font-bold text-gray-900 mb-1">
                             {editingEvent ? 'Edit Event' : 'Create Event'}
                         </h3>
+                        <p className="text-xs text-gray-400 mb-5">Fill in the event details below</p>
                         <form onSubmit={handleSubmit}>
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Title</label>
                                     <input
                                         type="text"
                                         value={formData.title}
                                         onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                                         required
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                        className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Description</label>
                                     <textarea
                                         value={formData.description}
                                         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                         rows={3}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                        className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Date</label>
                                     <input
                                         type="datetime-local"
                                         value={formData.event_date}
                                         onChange={(e) => setFormData({ ...formData, event_date: e.target.value })}
                                         required
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                        className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Location</label>
                                     <input
                                         type="text"
                                         value={formData.location}
                                         onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                        className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Max Attendees</label>
+                                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Max Attendees</label>
                                     <input
                                         type="number"
                                         value={formData.max_attendees}
                                         onChange={(e) => setFormData({ ...formData, max_attendees: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                        className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none"
                                     />
                                 </div>
                             </div>
@@ -178,11 +180,11 @@ export default function EventsPanel() {
                                 <button
                                     type="button"
                                     onClick={() => setShowModal(false)}
-                                    className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                                    className="px-5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
                                 >
                                     Cancel
                                 </button>
-                                <button type="submit" className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                                <button type="submit" className="px-5 py-2.5 text-sm font-medium bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:shadow-lg transition-all">
                                     {editingEvent ? 'Update' : 'Create'}
                                 </button>
                             </div>
@@ -190,6 +192,6 @@ export default function EventsPanel() {
                     </div>
                 </div>
             )}
-        </div>
+        </AdminPanel>
     );
 }

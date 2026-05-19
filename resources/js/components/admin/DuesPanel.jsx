@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { adminDuesService } from '../../services/api';
+import AdminPanel from './AdminPanel';
 
 const STATUS_BADGE = {
     approved: 'bg-green-100 text-green-700',
@@ -20,13 +21,30 @@ export default function DuesPanel() {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('');
     const [showUpload, setShowUpload] = useState(false);
+    const [showExportMenu, setShowExportMenu] = useState(false);
+    const [exporting, setExporting] = useState(false);
     const [showCodes, setShowCodes] = useState(false);
     const [generatedCodes, setGeneratedCodes] = useState([]);
     const [selectedPayment, setSelectedPayment] = useState(null);
+    const [cardRequests, setCardRequests] = useState([]);
+    const [cardRequestsLoading, setCardRequestsLoading] = useState(false);
+    const [selectedMembers, setSelectedMembers] = useState(new Set());
+    const [generatingForMembers, setGeneratingForMembers] = useState(false);
+
+    const toggleMember = useCallback((id) => {
+        setSelectedMembers(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    }, []);
 
     useEffect(() => {
         if (tab === 'payments') loadPayments();
         if (tab === 'members') loadMembers();
+        if (tab === 'card-requests') loadCardRequests();
+        setSelectedMembers(new Set());
     }, [tab, filter]);
 
     const loadPayments = async () => {
@@ -45,6 +63,29 @@ export default function DuesPanel() {
         } catch {} finally { setLoading(false); }
     };
 
+    const loadCardRequests = async () => {
+        setCardRequestsLoading(true);
+        try {
+            const res = await adminDuesService.getCardRequests();
+            setCardRequests(res.data.data || []);
+        } catch {} finally { setCardRequestsLoading(false); }
+    };
+
+    const handleApproveCardRequest = async (id) => {
+        try {
+            await adminDuesService.approveCardRequest(id);
+            loadCardRequests();
+        } catch { alert('Failed to approve request'); }
+    };
+
+    const handleRejectCardRequest = async (id) => {
+        const notes = prompt('Reason for rejection (optional):');
+        try {
+            await adminDuesService.rejectCardRequest(id, notes || '');
+            loadCardRequests();
+        } catch { alert('Failed to reject request'); }
+    };
+
     const handleApprove = async (id) => {
         try {
             await adminDuesService.approvePayment(id);
@@ -60,78 +101,110 @@ export default function DuesPanel() {
         } catch { alert('Failed to reject'); }
     };
 
-    return (
-        <div className="bg-white rounded-xl p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex gap-2">
-                    <button onClick={() => setTab('payments')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                            tab === 'payments' ? 'bg-purple-100 text-purple-700' : 'text-gray-600 hover:bg-gray-50'
-                        }`}>💳 Payments</button>
-                    <button onClick={() => setTab('members')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                            tab === 'members' ? 'bg-purple-100 text-purple-700' : 'text-gray-600 hover:bg-gray-50'
-                        }`}>👥 Members</button>
-                </div>
-                <div className="flex gap-2">
-                    <button onClick={() => setShowUpload(true)} className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-all">
-                        + Upload Payment
-                    </button>
-                    <button onClick={() => setShowCodes(true)} className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-all">
-                        Generate Codes
-                    </button>
-                </div>
-            </div>
+    const handleDownload = async (format) => {
+        setShowExportMenu(false);
+        setExporting(true);
+        try {
+            const res = await adminDuesService.downloadPayments({ status: filter || undefined, format });
+            const ext = format === 'pdf' ? 'pdf' : 'csv';
+            const url = URL.createObjectURL(new Blob([res.data]));
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `dues-payments-${new Date().toISOString().split('T')[0]}.${ext}`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch { console.error('Export failed'); }
+        finally { setExporting(false); }
+    };
 
-            <input type="text" placeholder={tab === 'payments' ? 'Filter by status (pending, approved, rejected)...' : 'Search by name or card code...'}
-                value={filter} onChange={(e) => setFilter(e.target.value)}
-                className="w-full mb-4 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
+    const handleGenerateForSelected = async () => {
+        if (selectedMembers.size === 0) return;
+        const names = members.filter(m => selectedMembers.has(m.id)).map(m => m.name).join(', ');
+        if (!confirm(`Generate and assign unique card codes for ${selectedMembers.size} selected member(s)?\n\n${names}`)) return;
+        setGeneratingForMembers(true);
+        try {
+            const res = await adminDuesService.generateCodesForUsers([...selectedMembers]);
+            alert(res.data.message);
+            setSelectedMembers(new Set());
+            loadMembers();
+        } catch { alert('Failed to generate codes'); } finally { setGeneratingForMembers(false); }
+    };
 
-            {loading ? (
-                <div className="text-center py-8 text-gray-400">Loading...</div>
-            ) : tab === 'payments' ? (
+    const actionBtns = (
+        <div className="flex flex-wrap gap-2">
+            <button onClick={() => setShowUpload(true)}
+                className="px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl text-sm font-medium hover:shadow-lg transition-all">
+                + Upload Payment
+            </button>
+            {tab === 'members' ? (
+                <button onClick={handleGenerateForSelected} disabled={selectedMembers.size === 0 || generatingForMembers}
+                    className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl text-sm font-medium hover:shadow-lg transition-all disabled:opacity-50">
+                    {generatingForMembers ? 'Generating...' : `Generate Codes (${selectedMembers.size})`}
+                </button>
+            ) : (
+                <button onClick={() => setShowCodes(true)}
+                    className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl text-sm font-medium hover:shadow-lg transition-all">
+                    Generate Codes
+                </button>
+            )}
+            {tab === 'payments' && (
+                <div className="relative">
+                    <button onClick={() => setShowExportMenu(!showExportMenu)} disabled={exporting}
+                        className="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl text-sm font-medium hover:shadow-lg transition-all disabled:opacity-50">
+                        {exporting ? 'Downloading...' : '⬇ Download'}
+                    </button>
+                    {showExportMenu && (
+                        <>
+                            <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} />
+                            <div className="absolute right-0 mt-1 bg-white rounded-xl shadow-xl border border-gray-200 py-1 z-20 min-w-[140px]">
+                                <button onClick={() => handleDownload('csv')}
+                                    className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">📄 CSV</button>
+                                <button onClick={() => handleDownload('pdf')}
+                                    className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">📑 PDF</button>
+                            </div>
+                        </>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+
+    const renderTabContent = () => {
+        if (tab === 'payments') {
+            return (
                 <div className="space-y-2">
                     {payments.length === 0 && <p className="text-center py-8 text-gray-400">No payments found</p>}
                     {payments.map(p => (
-                        <div key={p.id} onClick={() => setSelectedPayment(p)} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-100 cursor-pointer hover:bg-gray-100 transition-colors">
+                        <div key={p.id} onClick={() => setSelectedPayment(p)} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-100 cursor-pointer hover:bg-purple-50/50 transition-colors">
                             <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gray-200 text-sm">
-                                    {TYPE_ICON[p.type]}
-                                </div>
+                                <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gray-200 text-sm">{TYPE_ICON[p.type]}</div>
                                 <div>
-                                    <div className="text-sm font-medium text-gray-800">{p.user?.name || 'Unknown'}</div>
-                                    <div className="text-xs text-gray-400">{p.user?.dues_card_code} · {new Date(p.created_at).toLocaleDateString()}</div>
+                                    <div className="text-sm font-medium text-gray-800">{p.user?.name}</div>
+                                    <div className="text-xs text-gray-400">{p.type} · {new Date(p.created_at).toLocaleDateString()}</div>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
-                                <div className="text-right">
-                                    <div className="text-sm font-bold text-gray-800">₵{parseFloat(p.amount).toFixed(2)}</div>
-                                    <span className={`inline-block text-xs px-2 py-0.5 rounded-full ${STATUS_BADGE[p.status]}`}>{p.status}</span>
-                                </div>
-                                {p.status === 'pending' && (
-                                    <div className="flex gap-1">
-                                        <button onClick={() => handleApprove(p.id)} className="px-2.5 py-1 bg-green-500 text-white text-xs rounded-lg hover:bg-green-600">✓</button>
-                                        <button onClick={() => handleReject(p.id)} className="px-2.5 py-1 bg-red-500 text-white text-xs rounded-lg hover:bg-red-600">✕</button>
-                                    </div>
-                                )}
+                            <div className="text-right">
+                                <div className="text-sm font-bold">₵{parseFloat(p.amount).toFixed(2)}</div>
+                                <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${STATUS_BADGE[p.status]}`}>{p.status}</span>
                             </div>
                         </div>
                     ))}
                 </div>
-            ) : (
+            );
+        }
+        if (tab === 'members') {
+            return (
                 <div className="space-y-2">
                     {members.length === 0 && <p className="text-center py-8 text-gray-400">No members found</p>}
                     {members.map(m => (
                         <div key={m.id} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-100">
                             <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white text-sm font-bold">
-                                    {m.name?.charAt(0)}
-                                </div>
+                                <input type="checkbox" checked={selectedMembers.has(m.id)} onChange={() => toggleMember(m.id)}
+                                    className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500" />
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white text-sm font-bold">{m.name?.charAt(0)}</div>
                                 <div>
                                     <div className="text-sm font-medium text-gray-800">{m.name}</div>
-                                    <div className="text-xs text-gray-400">
-                                        Card: {m.dues_card_code || '—'} · {m.is_member ? 'Member' : 'Non-member'}
-                                    </div>
+                                    <div className="text-xs text-gray-400">Card: {m.dues_card_code || '—'} · {m.is_member ? 'Member' : 'Non-member'}</div>
                                 </div>
                             </div>
                             <div className="text-right">
@@ -141,12 +214,69 @@ export default function DuesPanel() {
                         </div>
                     ))}
                 </div>
-            )}
+            );
+        }
+        if (tab === 'card-requests') {
+            return (
+                <div className="space-y-2">
+                    {cardRequestsLoading ? (
+                        [1, 2, 3].map(i => <div key={i} className="h-16 bg-gray-50 rounded-xl animate-pulse" />)
+                    ) : cardRequests.length === 0 ? (
+                        <p className="text-center py-8 text-gray-400">No pending card requests</p>
+                    ) : cardRequests.map(r => (
+                        <div key={r.id} className="flex items-center justify-between p-4 rounded-xl bg-gray-50 border border-gray-100">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 flex items-center justify-center text-white text-sm font-bold shrink-0">{r.user?.name?.charAt(0) || '?'}</div>
+                                <div className="min-w-0">
+                                    <div className="text-sm font-medium text-gray-800 truncate">{r.user?.name || 'Unknown'}</div>
+                                    <div className="text-xs text-gray-400">{r.user?.email} · Requested {new Date(r.created_at).toLocaleDateString()}</div>
+                                </div>
+                            </div>
+                            <div className="flex gap-2 shrink-0 ml-3">
+                                <button onClick={() => handleApproveCardRequest(r.id)} className="px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-lg text-xs font-medium hover:shadow-lg transition-all">✅ Approve</button>
+                                <button onClick={() => handleRejectCardRequest(r.id)} className="px-3 py-1.5 border border-red-200 text-red-600 rounded-lg text-xs font-medium hover:bg-red-50 transition-all">✕ Reject</button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+        return null;
+    };
+
+    const titleCount = tab === 'payments' ? payments.length : tab === 'members' ? members.length : cardRequests.length;
+
+    return (
+        <AdminPanel title={`Dues (${titleCount})`} action={actionBtns}>
+            <div className="flex gap-2 mb-4 overflow-x-auto">
+                <button onClick={() => setTab('payments')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                        tab === 'payments' ? 'bg-purple-100 text-purple-700' : 'text-gray-600 hover:bg-gray-50'
+                    }`}>💳 Payments</button>
+                <button onClick={() => setTab('members')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                        tab === 'members' ? 'bg-purple-100 text-purple-700' : 'text-gray-600 hover:bg-gray-50'
+                    }`}>👥 Members</button>
+                <button onClick={() => setTab('card-requests')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                        tab === 'card-requests' ? 'bg-purple-100 text-purple-700' : 'text-gray-600 hover:bg-gray-50'
+                    }`}>📋 Card Requests</button>
+            </div>
+
+            <input type="text" placeholder={tab === 'payments' ? 'Filter by status (pending, approved, rejected)...' : 'Search by name or card code...'}
+                value={filter} onChange={(e) => setFilter(e.target.value)}
+                className="w-full mb-4 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none" />
+
+            {loading ? (
+                <div className="space-y-2">
+                    {[1, 2, 3, 4].map(i => <div key={i} className="h-14 bg-gray-50 rounded-xl animate-pulse" />)}
+                </div>
+            ) : renderTabContent()}
 
             {showUpload && <UploadPaymentModal onClose={() => setShowUpload(false)} onSuccess={() => { setShowUpload(false); loadPayments(); }} />}
             {showCodes && <GenerateCodesModal onClose={() => setShowCodes(false)} />}
             {selectedPayment && <PaymentDetailModal payment={selectedPayment} onClose={() => setSelectedPayment(null)} onApprove={handleApprove} onReject={handleReject} />}
-        </div>
+        </AdminPanel>
     );
 }
 

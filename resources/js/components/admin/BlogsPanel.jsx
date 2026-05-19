@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { adminService } from '../../services/api';
+import AdminPanel from './AdminPanel';
 
 export default function BlogsPanel() {
     const [blogs, setBlogs] = useState([]);
@@ -48,15 +49,23 @@ export default function BlogsPanel() {
         } catch { alert('Failed to update'); }
     };
 
-    if (loading) return <div className="text-center py-8 text-gray-500">Loading...</div>;
+    if (loading) {
+        return (
+            <AdminPanel title="Blogs Management">
+                <div className="space-y-3">
+                    {[1, 2, 3, 4].map(i => <div key={i} className="h-14 bg-gray-50 rounded-xl animate-pulse" />)}
+                </div>
+            </AdminPanel>
+        );
+    }
 
     return (
-        <div className="bg-white rounded-xl p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-800">Blogs Management</h2>
-                <input type="text" placeholder="Search blogs..." value={search} onChange={(e) => setSearch(e.target.value)}
-                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500" />
-            </div>
+        <AdminPanel
+            title={`Blogs (${blogs.length})`}
+            search={search}
+            onSearch={(e) => setSearch(e.target.value)}
+            searchPlaceholder="Search blogs..."
+        >
             <div className="space-y-2">
                 {blogs.length === 0 && <p className="text-center py-8 text-gray-400">No blogs found</p>}
                 {blogs.map(blog => (
@@ -104,6 +113,6 @@ export default function BlogsPanel() {
                     </div>
                 </div>
             )}
-        </div>
+        </AdminPanel>
     );
 }

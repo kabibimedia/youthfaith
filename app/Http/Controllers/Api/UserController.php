@@ -59,11 +59,15 @@ class UserController extends Controller
 
         $request->validate([
             'name' => 'sometimes|string|max:255',
+            'surname' => 'sometimes|string|max:255',
+            'firstname' => 'sometimes|string|max:255',
+            'othername' => 'sometimes|string|max:255',
+            'location' => 'sometimes|string|max:255',
             'bio' => 'sometimes|string|max:500',
             'favorite_verse' => 'sometimes|string|max:255',
         ]);
 
-        $user->update($request->only(['name', 'bio', 'favorite_verse']));
+        $user->update($request->only(['name', 'surname', 'firstname', 'othername', 'location', 'bio', 'favorite_verse']));
 
         return response()->json($user);
     }
@@ -169,5 +173,24 @@ class UserController extends Controller
             ->get();
 
         return response()->json($wishes);
+    }
+
+    public function search(Request $request): JsonResponse
+    {
+        $query = $request->get('q');
+
+        if (! $query || strlen($query) < 2) {
+            return response()->json([]);
+        }
+
+        $users = User::where('name', 'like', "%{$query}%")
+            ->orWhere('firstname', 'like', "%{$query}%")
+            ->orWhere('surname', 'like', "%{$query}%")
+            ->orWhere('username', 'like', "%{$query}%")
+            ->orWhere('email', 'like', "%{$query}%")
+            ->limit(20)
+            ->get(['id', 'name', 'avatar']);
+
+        return response()->json($users);
     }
 }

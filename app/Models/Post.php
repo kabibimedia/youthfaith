@@ -4,11 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Post extends Model
 {
-    protected $fillable = ['user_id', 'content', 'media_url', 'media_type', 'post_type', 'shares_count', 'shared_from_post_id'];
+    protected $fillable = ['user_id', 'content', 'media_url', 'media_type', 'post_type', 'location', 'shares_count', 'shared_from_post_id'];
 
     protected $casts = [
         'shares_count' => 'integer',
@@ -32,5 +33,10 @@ class Post extends Model
     public function likes(): HasMany
     {
         return $this->hasMany(Like::class);
+    }
+
+    public function tags(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'post_user');
     }
 }

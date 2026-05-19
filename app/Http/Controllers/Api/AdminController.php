@@ -14,6 +14,7 @@ use App\Models\Prayer;
 use App\Models\Quiz;
 use App\Models\Slider;
 use App\Models\User;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -42,6 +43,11 @@ class AdminController extends Controller
             'pending_approvals_today' => DuesPayment::where('status', 'pending')
                 ->whereDate('created_at', today())
                 ->count(),
+            'total_blogs' => Blog::count(),
+            'total_quizzes' => Quiz::count(),
+            'total_announcements' => Announcement::count(),
+            'total_sliders' => Slider::count(),
+            'total_clients' => User::where('is_member', true)->count(),
         ];
 
         $monthlyDues = collect();
@@ -95,6 +101,9 @@ class AdminController extends Controller
             ->latest()
             ->limit(10)
             ->get();
+        $featured_announcement = Announcement::where('is_featured', true)
+            ->where('is_active', true)
+            ->first();
 
         return response()->json([
             'stats' => $stats,
@@ -105,6 +114,7 @@ class AdminController extends Controller
             'recent_users' => $recent_users,
             'recent_posts' => $recent_posts,
             'pending_payments' => $pending_payments,
+            'featured_announcement' => $featured_announcement,
         ]);
     }
 
@@ -117,8 +127,8 @@ class AdminController extends Controller
                 ->orWhere('email', 'like', "%{$request->search}%");
         }
 
-        if ($request->has('is_admin')) {
-            $query->where('is_admin', $request->boolean('is_admin'));
+        if ($request->has('role')) {
+            $query->where('role', $request->role);
         }
 
         $users = $query->latest()->paginate(20);
@@ -129,7 +139,12 @@ class AdminController extends Controller
     public function updateUser(Request $request, $id)
     {
         $user = User::findOrFail($id);
-        $user->update($request->only(['name', 'email', 'is_admin', 'role', 'points']));
+        $data = $request->only(['name', 'email', 'position', 'points']);
+        if ($request->has('role')) {
+            $data['role'] = $request->role;
+            $data['is_admin'] = in_array($request->role, ['admin', 'super_admin']);
+        }
+        $user->update($data);
 
         return response()->json($user);
     }
@@ -148,6 +163,14 @@ class AdminController extends Controller
 
         if ($request->search) {
             $query->where('content', 'like', "%{$request->search}%");
+        }
+
+        if ($request->date_from) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+
+        if ($request->date_to) {
+            $query->whereDate('created_at', '<=', $request->date_to);
         }
 
         $posts = $query->latest()->paginate(20);
@@ -294,10 +317,18 @@ class AdminController extends Controller
 
     public function challenges(Request $request)
     {
-        $query = Challenge::query();
+        $query = Challenge::withCount('users');
 
         if ($request->search) {
             $query->where('title', 'like', "%{$request->search}%");
+        }
+
+        if ($request->date_from) {
+            $query->whereDate('start_date', '>=', $request->date_from);
+        }
+
+        if ($request->date_to) {
+            $query->whereDate('end_date', '<=', $request->date_to);
         }
 
         $challenges = $query->latest()->paginate(20);
@@ -603,9 +634,50 @@ class AdminController extends Controller
 
         $clients = $query->orderBy('name')->get();
 
+        if ($request->format === 'pdf') {
+            $rows = '';
+            foreach ($clients as $client) {
+                $rows .= '<tr>
+                    <td>'.e($client->surname ?? '').'</td>
+                    <td>'.e($client->firstname ?? '').'</td>
+                    <td>'.e($client->othername ?? '').'</td>
+                    <td>'.e($client->email).'</td>
+                    <td>'.e($client->username).'</td>
+                    <td>'.e($client->role ?? '').'</td>
+                    <td>'.e($client->dues_card_code ?? '').'</td>
+                    <td>'.e($client->location ?? '').'</td>
+                    <td>'.($client->date_of_birth ?? '').'</td>
+                    <td>'.$client->created_at->format('Y-m-d').'</td>
+                </tr>';
+            }
+
+            $html = '
+            <style>
+                body { font-family: DejaVu Sans, sans-serif; font-size: 9px; color: #333; }
+                h1 { font-size: 18px; text-align: center; color: #7c3aed; margin-bottom: 4px; }
+                .subtitle { text-align: center; color: #666; font-size: 11px; margin-bottom: 20px; }
+                table { width: 100%; border-collapse: collapse; }
+                th { background: #7c3aed; color: #fff; padding: 5px 6px; text-align: left; font-size: 8px; text-transform: uppercase; }
+                td { padding: 4px 6px; border-bottom: 1px solid #eee; }
+                tr:nth-child(even) td { background: #fafafa; }
+                .footer { text-align: center; color: #999; font-size: 8px; margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px; }
+            </style>
+            <h1>📄 Clients Report</h1>
+            <p class="subtitle">YouthFaith &mdash; Member List</p>
+            <table>
+                <thead>
+                    <tr><th>Surname</th><th>First Name</th><th>Other Name</th><th>Email</th><th>Username</th><th>Role</th><th>Card Code</th><th>Location</th><th>DOB</th><th>Member Since</th></tr>
+                </thead>
+                <tbody>'.$rows.'</tbody>
+            </table>
+            <p class="footer">Generated by YouthFaith Admin &bull; '.now()->format('d M Y H:i').'</p>';
+
+            return Pdf::loadHTML($html)->download('clients-'.now()->format('Y-m-d').'.pdf');
+        }
+
         $headers = [
             'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="clients-export-'.now()->format('Y-m-d').'.csv"',
+            'Content-Disposition' => 'attachment; filename="clients-'.now()->format('Y-m-d').'.csv"',
         ];
 
         $callback = function () use ($clients) {

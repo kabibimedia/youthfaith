@@ -14,6 +14,7 @@ class PostController extends Controller
     {
         $posts = Post::with([
             'user:id,name,avatar',
+            'tags:id,name,avatar',
             'comments.user:id,name,avatar',
             'comments.replies.user:id,name,avatar',
             'sharedFrom.user:id,name,avatar',
@@ -56,13 +57,16 @@ class PostController extends Controller
         $rules = [
             'content' => 'required|string|max:2000',
             'post_type' => 'nullable|in:text,image,video,reel,live',
+            'location' => 'nullable|string|max:255',
+            'tagged_users' => 'nullable|array',
+            'tagged_users.*' => 'exists:users,id',
         ];
 
         $mimeRules = 'nullable';
         if ($postType === 'image') {
             $mimeRules = 'required|file|mimes:jpeg,png,jpg,gif,webp|max:10240';
         } elseif (in_array($postType, ['video', 'reel'])) {
-            $mimeRules = 'required|file|mimes:mp4,webm|max:51200';
+            $mimeRules = 'required|file|mimes:mp4,webm|max:40960';
         } elseif ($postType === 'live') {
             $mimeRules = 'nullable';
         }
@@ -73,6 +77,7 @@ class PostController extends Controller
         $post = $request->user()->posts()->create([
             'content' => $request->content,
             'post_type' => $postType,
+            'location' => $request->location,
         ]);
 
         if ($request->hasFile('media')) {
@@ -84,7 +89,11 @@ class PostController extends Controller
             ]);
         }
 
-        $post->load(['user', 'comments.user', 'likes']);
+        if ($request->tagged_users) {
+            $post->tags()->sync($request->tagged_users);
+        }
+
+        $post->load(['user', 'tags', 'comments.user', 'likes']);
 
         return response()->json($post, 201);
     }
@@ -187,6 +196,20 @@ class PostController extends Controller
             ->get();
 
         return response()->json($comments);
+    }
+
+    public function taggedPosts(int $userId): JsonResponse
+    {
+        $posts = Post::with([
+            'user:id,name,avatar',
+            'tags:id,name,avatar',
+            'comments.user:id,name,avatar',
+        ])
+            ->whereHas('tags', fn ($q) => $q->where('user_id', $userId))
+            ->orderByDesc('created_at')
+            ->get();
+
+        return response()->json($posts);
     }
 
     public function share(int $id, Request $request): JsonResponse

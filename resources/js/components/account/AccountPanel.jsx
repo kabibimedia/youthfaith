@@ -16,6 +16,8 @@ export default function AccountPanel({ onNavClick }) {
     const [showTopUp, setShowTopUp] = useState(false);
     const [showStatement, setShowStatement] = useState(false);
     const [showPledges, setShowPledges] = useState(false);
+    const [codeRequesting, setCodeRequesting] = useState(false);
+    const [codeRequested, setCodeRequested] = useState(false);
     const panelRef = useRef(null);
 
     useEffect(() => {
@@ -56,24 +58,51 @@ export default function AccountPanel({ onNavClick }) {
         setShowPledges(false);
     };
 
+    const handleRequestCode = async () => {
+        setCodeRequesting(true);
+        try {
+            await duesService.requestCode();
+            setCodeRequested(true);
+        } catch {
+            alert('Failed to submit request. Please try again.');
+        } finally {
+            setCodeRequesting(false);
+        }
+    };
+
     return (
         <>
             <div ref={panelRef} className="mb-3">
-                <button
-                    onClick={() => setExpanded(!expanded)}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-100 hover:border-purple-200 transition-all text-left"
-                >
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white text-sm font-bold shrink-0">
-                        {user?.name?.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <div className="text-sm font-semibold text-gray-800 truncate">{user?.name}</div>
-                        <div className="text-xs text-gray-400 truncate">{user?.role ? `${user.role} · ` : ''}Card: {data?.card_code || '—'}</div>
-                    </div>
-                    <svg className={`w-4 h-4 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                </button>
+                <div className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-100 hover:border-purple-200 transition-all">
+                    <NavLink to={`/profile/${user?.id}`} className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="relative shrink-0">
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white text-sm font-bold">
+                                {user?.name?.charAt(0).toUpperCase()}
+                            </div>
+                            {user?.dues_card_status && user.dues_card_status !== 'verified' && (
+                                <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
+                                    user.dues_card_status === 'pending' ? 'bg-amber-400' : 'bg-red-500'
+                                }`} />
+                            )}
+                            {user?.dues_card_status === 'verified' && (
+                                <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white bg-green-500" />
+                            )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="text-sm font-semibold text-gray-800 truncate">{user?.name}</div>
+                            <div className="text-xs text-gray-400 truncate flex items-center gap-2">
+                                <span>⭐ {user?.points || 0}</span>
+                                <span>🔥 {user?.streak || 0}</span>
+                                {user?.role && <span>· {user.role}</span>}
+                            </div>
+                        </div>
+                    </NavLink>
+                    <button onClick={() => setExpanded(!expanded)} className="shrink-0 p-1 hover:bg-white/50 rounded-lg transition-colors">
+                        <svg className={`w-4 h-4 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                </div>
 
                 {expanded && (
                     <div className="mt-2 p-4 rounded-xl bg-gray-50 border border-gray-100 space-y-3 animate-fadeIn">
@@ -127,6 +156,15 @@ export default function AccountPanel({ onNavClick }) {
                                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-white hover:text-purple-600 transition-all">
                                 🤝 My Pledges
                             </button>
+                            {user?.has_dues_card && user?.dues_card_status === 'pending' && !user?.dues_card_code && !codeRequested && (
+                                <button onClick={handleRequestCode} disabled={codeRequesting}
+                                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-amber-600 hover:bg-amber-50 transition-all">
+                                    {codeRequesting ? '⏳ Requesting...' : '📋 Request My Code'}
+                                </button>
+                            )}
+                            {codeRequested && (
+                                <div className="px-3 py-2.5 text-xs text-amber-700 bg-amber-50 rounded-lg">✅ Code requested. Admin will review shortly.</div>
+                            )}
                             <hr className="border-gray-200" />
                             <button onClick={handleLogout}
                                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-500 hover:bg-red-50 transition-all">

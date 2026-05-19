@@ -16,6 +16,13 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
 
+    protected static function booted(): void
+    {
+        static::saving(function (User $user) {
+            $user->is_admin = $user->isAdmin();
+        });
+    }
+
     /**
      * The attributes that are mass assignable.
      *
@@ -44,7 +51,9 @@ class User extends Authenticatable
         'has_dues_card',
         'dues_card_code',
         'dues_card_issued_at',
+        'dues_card_status',
         'registration_photo',
+        'position',
     ];
 
     /**
@@ -132,5 +141,35 @@ class User extends Authenticatable
     public function pledges(): HasMany
     {
         return $this->hasMany(Pledge::class);
+    }
+
+    public function taggedPosts(): BelongsToMany
+    {
+        return $this->belongsToMany(Post::class, 'post_user');
+    }
+
+    public function liveSessions(): HasMany
+    {
+        return $this->hasMany(LiveSession::class);
+    }
+
+    public function isAdmin(): bool
+    {
+        return in_array($this->role, ['admin', 'super_admin']);
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === 'super_admin';
+    }
+
+    public function getIsAdminAttribute($value): bool
+    {
+        return $this->isAdmin();
+    }
+
+    public function scopeRole($query, string $role)
+    {
+        return $query->where('role', $role);
     }
 }

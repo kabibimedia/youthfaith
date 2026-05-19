@@ -2,6 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { statusService } from '../services/api';
 
+function avatarSrc(path) {
+    if (!path) return null;
+    if (path.startsWith('http') || path.startsWith('/storage/')) return path;
+    return `/storage/${path}`;
+}
+
 export default function StatusBar() {
     const { user: currentUser } = useAuth();
     const [statuses, setStatuses] = useState([]);
@@ -104,7 +110,7 @@ export default function StatusBar() {
                         <div className="relative">
                             <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-dashed border-purple-300 flex items-center justify-center bg-purple-50 hover:bg-purple-100 transition-colors">
                                 {currentUser?.avatar ? (
-                                    <img src={`/storage/${currentUser.avatar}`} alt="" className="w-full h-full object-cover" />
+                                    <img src={avatarSrc(currentUser.avatar)} alt="" className="w-full h-full object-cover" />
                                 ) : (
                                     <span className="text-2xl">+</span>
                                 )}
@@ -131,7 +137,7 @@ export default function StatusBar() {
                                         <div className="p-0.5 bg-white rounded-full">
                                             <div className="w-14 h-14 rounded-full overflow-hidden bg-gray-100">
                                                 {currentUser?.avatar ? (
-                                                    <img src={`/storage/${currentUser.avatar}`} alt="" className="w-full h-full object-cover" />
+                                                    <img src={avatarSrc(currentUser.avatar)} alt="" className="w-full h-full object-cover" />
                                                 ) : (
                                                     <div className="w-full h-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-lg">
                                                         {currentUser?.name?.charAt(0)?.toUpperCase()}
@@ -154,7 +160,7 @@ export default function StatusBar() {
                                             <div className="p-0.5 bg-white rounded-full">
                                                 <div className="w-14 h-14 rounded-full overflow-hidden bg-gray-100">
                                                     {user?.avatar ? (
-                                                        <img src={`/storage/${user.avatar}`} alt="" className="w-full h-full object-cover" />
+                                                        <img src={avatarSrc(user.avatar)} alt="" className="w-full h-full object-cover" />
                                                     ) : (
                                                         <div className="w-full h-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">
                                                             {user?.name?.charAt(0)?.toUpperCase()}
@@ -277,7 +283,7 @@ export default function StatusBar() {
                     <div className="absolute top-12 left-0 right-0 z-10 px-4 flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-700">
                             {currentStatus.user?.avatar ? (
-                                <img src={`/storage/${currentStatus.user.avatar}`} alt="" className="w-full h-full object-cover" />
+                                <img src={avatarSrc(currentStatus.user.avatar)} alt="" className="w-full h-full object-cover" />
                             ) : (
                                 <div className="w-full h-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">
                                     {currentStatus.user?.name?.charAt(0)?.toUpperCase()}
