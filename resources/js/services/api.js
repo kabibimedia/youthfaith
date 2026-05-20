@@ -251,6 +251,8 @@ export const liveService = {
     getGifts: (id) => api.get(`/live/${id}/gifts`),
     sendComment: (id, message) => api.post(`/live/${id}/comment`, { message }),
     getComments: (id) => api.get(`/live/${id}/comments`),
+    setupLive: (data) => api.post('/live/setup', data),
+    activateLive: (id) => api.post(`/live/${id}/activate`),
 };
 
 export default api;

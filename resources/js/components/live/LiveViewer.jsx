@@ -127,21 +127,14 @@ export default function LiveViewer({ sessionId, onClose }) {
         chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: 'smooth' });
     }, [comments]);
 
-    if (!session) {
-        return (
-            <div className="fixed inset-0 bg-black z-50 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white" />
-            </div>
-        );
-    }
-
-    const isLive = session.status === 'live';
-    const isBroadcaster = user?.id === session.user_id;
-    const hasHls = session.stream_key;
+    const streamKey = session?.stream_key;
+    const isLive = session?.status === 'live';
+    const isBroadcaster = session && user?.id === session.user_id;
+    const hasHls = !!streamKey;
 
     useEffect(() => {
         if (isLive && hasHls && videoRef.current) {
-            const hlsUrl = `http://${window.location.hostname}:8001/live/${session.stream_key}.m3u8`;
+            const hlsUrl = `http://${window.location.hostname}:8001/live/${streamKey}.m3u8`;
             if (Hls.isSupported()) {
                 const hls = new Hls();
                 hlsRef.current = hls;
@@ -157,7 +150,15 @@ export default function LiveViewer({ sessionId, onClose }) {
                 hlsRef.current = null;
             }
         };
-    }, [isLive, hasHls, session.stream_key]);
+    }, [isLive, hasHls, streamKey]);
+
+    if (!session) {
+        return (
+            <div className="fixed inset-0 bg-black z-50 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white" />
+            </div>
+        );
+    }
 
     return (
         <div className="fixed inset-0 bg-black z-50 flex flex-col">

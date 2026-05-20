@@ -120,6 +120,8 @@ Route::prefix('live')->group(function () {
     Route::post('/{id}/comment', [LiveSessionController::class, 'comment'])->middleware('auth:sanctum');
     Route::get('/{id}/comments', [LiveSessionController::class, 'comments']);
     Route::post('/verify-stream-key', [LiveSessionController::class, 'verifyStreamKey']);
+    Route::post('/setup', [LiveSessionController::class, 'setup'])->middleware('auth:sanctum');
+    Route::post('/{id}/activate', [LiveSessionController::class, 'activate'])->middleware('auth:sanctum');
 });
 
 Route::prefix('events')->group(function () {

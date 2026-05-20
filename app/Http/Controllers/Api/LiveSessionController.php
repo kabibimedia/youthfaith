@@ -49,7 +49,7 @@ class LiveSessionController extends Controller
         $session = $request->user()->liveSessions()->create([
             'title' => $request->title,
             'stream_key' => $streamKey,
-            'rtmp_url' => 'rtmp://' . $request->getHost() . ':1935/live',
+            'rtmp_url' => 'rtmp://'.$request->getHost().':1935/live',
             'started_at' => now(),
         ]);
 
@@ -72,7 +72,7 @@ class LiveSessionController extends Controller
 
         if ($request->boolean('create_post') && $session->title) {
             $post = $request->user()->posts()->create([
-                'content' => '🔴 Live ended: ' . $session->title,
+                'content' => '🔴 Live ended: '.$session->title,
                 'post_type' => 'text',
             ]);
         }
@@ -164,6 +164,59 @@ class LiveSessionController extends Controller
             ->get();
 
         return response()->json($gifts);
+    }
+
+    public function setup(Request $request): JsonResponse
+    {
+        $request->validate([
+            'title' => 'nullable|string|max:255',
+        ]);
+
+        $existing = LiveSession::where('user_id', $request->user()->id)
+            ->whereIn('status', ['live', 'pending'])
+            ->first();
+
+        if ($existing) {
+            return response()->json([
+                'stream_key' => $existing->stream_key,
+                'rtmp_url' => $existing->rtmp_url,
+                'play_url' => url('/hls/'.$existing->stream_key.'.m3u8'),
+                'session' => $existing->load('user:id,name,avatar'),
+                'message' => $existing->status === 'live' ? 'You are already live' : 'You already have a pending setup',
+            ]);
+        }
+
+        $streamKey = Str::upper(Str::random(16));
+        $rtmpUrl = 'rtmp://'.$request->getHost().':1935/live';
+
+        $session = $request->user()->liveSessions()->create([
+            'title' => $request->title ?? 'Live Stream',
+            'stream_key' => $streamKey,
+            'rtmp_url' => $rtmpUrl,
+            'status' => 'pending',
+            'started_at' => now(),
+        ]);
+
+        $session->load('user:id,name,avatar');
+
+        return response()->json([
+            'stream_key' => $streamKey,
+            'rtmp_url' => $rtmpUrl,
+            'play_url' => url('/hls/'.$streamKey.'.m3u8'),
+            'session' => $session,
+        ], 201);
+    }
+
+    public function activate(int $id, Request $request): JsonResponse
+    {
+        $session = LiveSession::where('id', $id)
+            ->where('user_id', $request->user()->id)
+            ->where('status', 'pending')
+            ->firstOrFail();
+
+        $session->update(['status' => 'live']);
+
+        return response()->json(['message' => 'Stream activated', 'session' => $session->fresh()->load('user:id,name,avatar')]);
     }
 
     public function verifyStreamKey(Request $request): JsonResponse

@@ -256,6 +256,11 @@ export default function Feed() {
     const [showLiveStream, setShowLiveStream] = useState(false);
     const [liveViewSession, setLiveViewSession] = useState(null);
     const [liveSessions, setLiveSessions] = useState([]);
+    const [showStreamSetup, setShowStreamSetup] = useState(false);
+    const [setupTitle, setSetupTitle] = useState('');
+    const [setupResult, setSetupResult] = useState(null);
+    const [setupLoading, setSetupLoading] = useState(false);
+    const [setupError, setSetupError] = useState('');
     const fileInputRef = useRef(null);
     const menuRef = useRef(null);
 
@@ -844,13 +849,9 @@ export default function Feed() {
                                         <button 
                                             type="submit" 
                                             disabled={posting || !newPost.trim() || (needsMedia && !mediaFile)}
-                                            className={`px-6 py-2 rounded-xl font-medium hover:shadow-lg disabled:opacity-50 transition-all flex items-center gap-2 ${
-                                                postType === 'live'
-                                                    ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white hover:shadow-red-500/30 animate-pulse'
-                                                    : 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:shadow-purple-500/30'
-                                            }`}
+                                            className="px-6 py-2 rounded-xl font-medium hover:shadow-lg disabled:opacity-50 transition-all flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:shadow-purple-500/30"
                                         >
-                                            {posting ? '⏳ Posting...' : postType === 'live' ? '🔴 Go Live' : '✨ Share'}
+                                            {posting ? '⏳ Posting...' : '✨ Share'}
                                         </button>
                                     </div>
                                 </div>
@@ -1105,6 +1106,204 @@ export default function Feed() {
                 {/* Sidebar - Right Column */}
                 <div className="space-y-4 h-full">
                     <div className="sticky top-24 space-y-4">
+                        <div className="bg-gradient-to-br from-red-600 via-rose-600 to-pink-600 rounded-2xl p-4 shadow-lg text-white">
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                                    <span className="text-sm font-semibold">Streaming</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    {liveSessions.length > 0 && (
+                                        <span className="bg-white/20 text-[10px] font-bold px-2 py-0.5 rounded-full">{liveSessions.length} live</span>
+                                    )}
+                                    <button
+                                        onClick={async () => {
+                                            if (!showStreamSetup) {
+                                                setSetupError('');
+                                                try {
+                                                    const res = await liveService.setupLive({});
+                                                    setSetupResult(res.data);
+                                                } catch {}
+                                            }
+                                            setShowStreamSetup(!showStreamSetup);
+                                            if (showStreamSetup) setSetupResult(null);
+                                        }}
+                                        className={`p-1.5 rounded-lg transition-all ${showStreamSetup ? 'bg-white/25' : 'bg-white/10 hover:bg-white/20'}`}
+                                        title="Stream Setup"
+                                    >
+                                        ⚙️
+                                    </button>
+                                </div>
+                            </div>
+
+                            {showStreamSetup ? (
+                                <div className="space-y-3">
+                                    {setupResult ? (
+                                        <div className="space-y-1.5">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                                                    setupResult.session?.status === 'live'
+                                                        ? 'bg-green-400/20 text-green-300'
+                                                        : 'bg-amber-400/20 text-amber-300'
+                                                }`}>
+                                                    {setupResult.session?.status === 'live' ? '● LIVE' : '◌ Pending'}
+                                                </span>
+                                                {setupResult.session?.status === 'pending' && (
+                                                    <button
+                                                        onClick={async () => {
+                                                            try {
+                                                                const res = await liveService.activateLive(setupResult.session.id);
+                                                                setSetupResult(prev => ({ ...prev, session: res.data.session }));
+                                                                loadLiveSessions();
+                                                            } catch {}
+                                                        }}
+                                                        className="text-[10px] font-semibold bg-green-500/20 text-green-300 hover:bg-green-500/30 px-2.5 py-0.5 rounded-full transition-all"
+                                                    >
+                                                        Activate
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] text-white/60 uppercase tracking-wider">RTMP URL</label>
+                                                <div className="flex gap-1 mt-0.5">
+                                                    <input readOnly value={setupResult.rtmp_url} className="flex-1 bg-white/15 text-white text-[11px] px-2 py-1.5 rounded-lg font-mono" />
+                                                    <button onClick={() => navigator.clipboard.writeText(setupResult.rtmp_url)} className="px-2.5 py-1 bg-white/15 hover:bg-white/25 rounded-lg text-[10px]">📋</button>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] text-white/60 uppercase tracking-wider">Stream Key</label>
+                                                <div className="flex gap-1 mt-0.5">
+                                                    <input readOnly value={setupResult.stream_key} className="flex-1 bg-white/15 text-white text-[11px] px-2 py-1.5 rounded-lg font-mono tracking-widest" />
+                                                    <button onClick={() => navigator.clipboard.writeText(setupResult.stream_key)} className="px-2.5 py-1 bg-white/15 hover:bg-white/25 rounded-lg text-[10px]">📋</button>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] text-white/60 uppercase tracking-wider">Playback URL (HLS)</label>
+                                                <div className="flex gap-1 mt-0.5">
+                                                    <input readOnly value={setupResult.play_url} className="flex-1 bg-white/15 text-white text-[11px] px-2 py-1.5 rounded-lg font-mono" />
+                                                    <button onClick={() => navigator.clipboard.writeText(setupResult.play_url)} className="px-2.5 py-1 bg-white/15 hover:bg-white/25 rounded-lg text-[10px]">📋</button>
+                                                </div>
+                                            </div>
+                                            <p className="text-[10px] text-white/50 italic">{setupResult.session?.status === 'live' ? 'Your stream is live!' : 'Enter these in OBS then click Activate'}</p>
+                                            <button
+                                                onClick={() => { setShowStreamSetup(false); setSetupResult(null); }}
+                                                className="w-full py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-[11px] font-medium transition-all"
+                                            >
+                                                Close
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {setupError && <p className="text-red-300 text-[11px] text-center">{setupError}</p>}
+                                            <input
+                                                value={setupTitle}
+                                                onChange={e => setSetupTitle(e.target.value)}
+                                                placeholder="Stream title (optional)"
+                                                className="w-full bg-white/15 text-white text-[11px] px-3 py-2 rounded-lg placeholder-white/40 focus:ring-2 focus:ring-white/30"
+                                                maxLength={100}
+                                            />
+                                            <button
+                                                onClick={async () => {
+                                                    setSetupLoading(true);
+                                                    setSetupError('');
+                                                    try {
+                                                        const res = await liveService.setupLive({ title: setupTitle || undefined });
+                                                        setSetupResult(res.data);
+                                                        loadLiveSessions();
+                                                    } catch (err) {
+                                                        setSetupError(err.response?.data?.message || 'Failed to setup stream');
+                                                    } finally {
+                                                        setSetupLoading(false);
+                                                    }
+                                                }}
+                                                disabled={setupLoading}
+                                                className="w-full py-2 bg-white text-red-600 rounded-xl font-bold text-sm hover:bg-red-50 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+                                            >
+                                                {setupLoading ? 'Generating...' : '🎬 Generate Stream Key'}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {liveSessions.map(s => {
+                                        const isMine = s.user?.id === user?.id;
+                                        return (
+                                            <div key={s.id} className="bg-white/10 rounded-xl p-3">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <div className="w-7 h-7 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                                                            {s.user?.name?.charAt(0) || '?'}
+                                                        </div>
+                                                        <span className="text-sm font-medium truncate">{isMine ? 'You' : s.user?.name}</span>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => setLiveViewSession(s)}
+                                                        className="text-[11px] font-semibold bg-white/20 hover:bg-white/30 px-2.5 py-1 rounded-full transition-all shrink-0"
+                                                    >
+                                                        Watch
+                                                    </button>
+                                                </div>
+                                                {isMine && (
+                                                    <div className="space-y-1.5 mt-2 pt-2 border-t border-white/15">
+                                                        <div>
+                                                            <label className="text-[10px] text-white/60 uppercase tracking-wider">RTMP URL</label>
+                                                            <div className="flex gap-1 mt-0.5">
+                                                                <input readOnly value={s.rtmp_url || ''} className="flex-1 bg-white/15 text-white text-[11px] px-2 py-1 rounded-lg font-mono" />
+                                                                <button onClick={() => navigator.clipboard.writeText(s.rtmp_url || '')} className="px-2 py-1 bg-white/15 hover:bg-white/25 rounded-lg text-[10px]">📋</button>
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-[10px] text-white/60 uppercase tracking-wider">Stream Key</label>
+                                                            <div className="flex gap-1 mt-0.5">
+                                                                <input readOnly value={s.stream_key || ''} className="flex-1 bg-white/15 text-white text-[11px] px-2 py-1 rounded-lg font-mono tracking-widest" />
+                                                                <button onClick={() => navigator.clipboard.writeText(s.stream_key || '')} className="px-2 py-1 bg-white/15 hover:bg-white/25 rounded-lg text-[10px]">📋</button>
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-[10px] text-white/50 italic">Use these in OBS → Settings → Stream</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                    {liveSessions.length === 0 && (
+                                        <p className="text-white/50 text-xs text-center py-2">No active streams</p>
+                                    )}
+                                </div>
+                            )}
+
+                            {!showStreamSetup && (
+                                (() => {
+                                    const myLive = liveSessions.find(s => s.user?.id === user?.id && s.status === 'live');
+                                    if (myLive) {
+                                        return (
+                                            <button
+                                                onClick={async () => {
+                                                    try {
+                                                        await liveService.endLive(myLive.id, true);
+                                                        loadLiveSessions();
+                                                    } catch {}
+                                                }}
+                                                className="w-full py-2 bg-gray-700 text-white rounded-xl font-bold text-sm hover:bg-gray-600 transition-all flex items-center justify-center gap-1.5 mt-3"
+                                            >
+                                                <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                                                End
+                                            </button>
+                                        );
+                                    }
+                                    return (
+                                        <button
+                                            onClick={() => setShowLiveStream(true)}
+                                            className="w-full py-2 bg-white text-red-600 rounded-xl font-bold text-sm hover:bg-red-50 transition-all flex items-center justify-center gap-1.5 mt-3"
+                                        >
+                                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                                            Go Live
+                                        </button>
+                                    );
+                                })()
+                            )}
+                        </div>
+
                         {announcement ? (
                             <div className={`rounded-2xl p-4 shadow-lg text-white ${
                                 announcement.type === 'danger' ? 'bg-gradient-to-br from-red-500 to-rose-600' :
